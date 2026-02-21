@@ -1,103 +1,100 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="fr">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Hashirama Direct — Susanoo Interface</title>
-  <link rel="stylesheet" href="styles.css" />
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Susanoo — Gilded Emperor</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;700;900&family=Cormorant+Garamond:ital,wght@0,300;0,600;1,300;1,600&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="styles.css" />
 </head>
 <body>
-  <div class="bg-layer" aria-hidden="true">
-    <svg viewBox="0 0 1600 900" class="susanoo-svg" preserveAspectRatio="xMidYMid slice">
-      <defs>
-        <radialGradient id="aura" cx="50%" cy="45%" r="55%">
-          <stop offset="0%" stop-color="#8b5cf6" stop-opacity="0.35"/>
-          <stop offset="45%" stop-color="#22d3ee" stop-opacity="0.18"/>
-          <stop offset="100%" stop-color="#020617" stop-opacity="0"/>
-        </radialGradient>
-        <linearGradient id="blade" x1="0" y1="0" x2="1" y2="1">
-          <stop offset="0%" stop-color="#67e8f9"/>
-          <stop offset="100%" stop-color="#a78bfa"/>
-        </linearGradient>
-      </defs>
-      <rect width="1600" height="900" fill="url(#aura)"/>
-      <g opacity="0.55" stroke="#7dd3fc" stroke-width="2" fill="none">
-        <path d="M760 230 C680 240,620 320,620 400 C620 500,700 580,800 580 C900 580,980 500,980 400 C980 320,920 240,840 230"/>
-        <path d="M700 420 C740 390,860 390,900 420"/>
-        <path d="M730 470 C760 495,840 495,870 470"/>
-      </g>
-      <g opacity="0.35" fill="#93c5fd">
-        <path d="M790 300 L820 300 L845 355 L765 355 Z"/>
-        <rect x="770" y="355" width="70" height="120" rx="18"/>
-      </g>
-      <g opacity="0.45" stroke="url(#blade)" stroke-width="6" stroke-linecap="round">
-        <path d="M930 320 L1120 180"/>
-        <path d="M935 335 L1130 195"/>
-      </g>
-      <g opacity="0.2" stroke="#a78bfa" stroke-width="1.5">
-        <circle cx="800" cy="430" r="220"/>
-        <circle cx="800" cy="430" r="300"/>
-      </g>
-    </svg>
+
+<!-- BACKGROUND LAYERS -->
+<div class="bg-g"></div>
+<div class="deco"></div>
+
+<!-- STATUE -->
+<div class="statue">
+  <div class="s-throne"></div>
+  <div class="s-legs"></div>
+  <div class="s-robe"></div>
+  <div class="s-chest"></div>
+  <div class="s-arm-l"></div>
+  <div class="s-arm-r"></div>
+  <div class="s-neck"></div>
+  <div class="s-head"></div>
+  <div class="s-crown"></div>
+  <div class="s-cglow"></div>
+  <div class="s-eyes">
+    <div class="eye"></div>
+    <div class="eye"></div>
+  </div>
+  <div class="s-glow"></div>
+</div>
+
+<!-- VIGNETTE -->
+<div class="vignette"></div>
+
+<!-- CHAT -->
+<div class="chat" id="chatBox">
+  <div class="ornament tl"></div>
+  <div class="ornament tr"></div>
+  <div class="ornament bl"></div>
+  <div class="ornament br"></div>
+
+  <div class="chat-header">
+    <div class="logo">SUSANOO</div>
+    <div class="sep"></div>
+    <div class="sub">Interface Impériale</div>
   </div>
 
-  <main class="app-shell">
-    <header class="topbar glass">
-      <div class="brand">
-        <div class="dot"></div>
-        <div>
-          <h1>Hashirama Direct</h1>
-          <p>Canal conversationnel — Susanoo Mode</p>
-        </div>
-      </div>
-      <div class="actions">
-        <button id="exportBtn" class="mini" aria-label="Exporter la conversation">Export</button>
-        <button id="clearBtn" class="mini" aria-label="Effacer la conversation">Clear</button>
-        <button id="adminBtn" class="mini" aria-label="Mode admin">Admin</button>
-        <div class="status" id="statusPill">Live Bridge</div>
-      </div>
-    </header>
-
-    <section class="chat-wrap glass" aria-label="Interface de conversation avec Hashirama">
-      <div class="chat-header">
-        <strong>Session</strong>
-        <span>Hyper-modern secure chat UI</span>
-      </div>
-
-      <div id="chat" class="chat" role="log" aria-live="polite"></div>
-
-      <form id="composer" class="composer" autocomplete="off">
-        <textarea id="input" rows="1" placeholder="Écris ton message pour Hashirama..." aria-label="Message pour Hashirama"></textarea>
-        <button type="submit" class="send" aria-label="Envoyer le message">Envoyer</button>
-      </form>
-      <p class="hint">Entrée = envoyer • Shift+Entrée = nouvelle ligne • Historique auto local</p>
-    </section>
-  </main>
-
-  
-  <div id="loginModal" class="login-modal" aria-label="Connexion profil">
-    <div class="login-card glass">
-      <h2>Connexion profil</h2>
-      <p>Choisis un profil, entre un PIN. Nouveau profil = création automatique.</p>
-      <form id="loginForm" class="login-form">
-        <input id="profileInput" type="text" placeholder="Profil (ex: raphael)" required />
-        <input id="pinInput" type="password" placeholder="PIN" required />
-        <button type="submit" class="send">Entrer</button>
-      </form>
-      <small>Ce profil conserve sa mémoire de conversation côté serveur.</small>
-      <hr style="border-color:rgba(148,163,184,.25);margin:.9rem 0"/>
-      <form id="adminLoginForm" class="login-form">
-        <input id="adminUser" type="text" placeholder="Admin user" />
-        <input id="adminPass" type="password" placeholder="Admin password" />
-        <button type="submit" class="mini">Connexion admin</button>
-      </form>
-      <div id="adminPanel" style="display:none;margin-top:.8rem">
-        <strong>Profils</strong>
-        <pre id="adminProfiles" style="white-space:pre-wrap;font-size:.78rem;color:#cbd5e1"></pre>
-      </div>
+  <div class="status-bar">
+    <div class="status-dot"></div>
+    <span class="status-txt" id="statusTxt">Connexion en attente…</span>
+    <div class="status-actions">
+      <button id="exportBtn" class="status-btn" aria-label="Exporter">Export</button>
+      <button id="clearBtn" class="status-btn" aria-label="Effacer">Clear</button>
+      <button id="adminBtn" class="status-btn" aria-label="Admin">Admin</button>
     </div>
   </div>
 
-  <script src="script.js"></script>
+  <div class="msgs" id="msgs" role="log" aria-live="polite"></div>
+
+  <div class="inp-row">
+    <textarea class="inp" id="inp" rows="1" placeholder="Votre commande impériale…" autocomplete="off" aria-label="Message"></textarea>
+    <button class="btn" id="btn">ENVOYER</button>
+  </div>
+</div>
+
+<!-- LOGIN MODAL -->
+<div id="loginModal" class="login-modal" aria-label="Connexion profil">
+  <div class="login-card">
+    <div class="ornament tl"></div>
+    <div class="ornament tr"></div>
+    <div class="ornament bl"></div>
+    <div class="ornament br"></div>
+    <h2 class="login-title">Identification</h2>
+    <p class="login-sub">Choisissez un profil et entrez votre PIN. Nouveau profil = création automatique.</p>
+    <form id="loginForm" class="login-form">
+      <input id="profileInput" type="text" class="inp" placeholder="Profil (ex: raphael)" required />
+      <input id="pinInput" type="password" class="inp" placeholder="PIN" required />
+      <button type="submit" class="btn btn-full">ENTRER</button>
+    </form>
+    <small class="login-hint">Ce profil conserve sa mémoire de conversation côté serveur.</small>
+    <div class="login-sep"></div>
+    <form id="adminLoginForm" class="login-form">
+      <input id="adminUser" type="text" class="inp" placeholder="Admin user" />
+      <input id="adminPass" type="password" class="inp" placeholder="Admin password" />
+      <button type="submit" class="btn btn-full btn-admin">ADMIN</button>
+    </form>
+    <div id="adminPanel" style="display:none;margin-top:.8rem">
+      <strong class="admin-label">Profils enregistrés</strong>
+      <pre id="adminProfiles" class="admin-profiles"></pre>
+    </div>
+  </div>
+</div>
+
+<script src="script.js"></script>
 </body>
 </html>
