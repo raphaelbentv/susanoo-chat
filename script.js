@@ -230,3 +230,22 @@ loginModal.addEventListener('click', (e) => {
     loginModal.style.display = 'none';
   }
 });
+
+const adminCreateForm = document.getElementById('adminCreateForm');
+const newProfileInput = document.getElementById('newProfileInput');
+const newProfilePin = document.getElementById('newProfilePin');
+if (adminCreateForm) adminCreateForm.addEventListener('submit', async (e) => {
+  e.preventDefault();
+  try {
+    const r = await fetch('/api/admin/create-profile', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${adminToken}` },
+      body: JSON.stringify({ profile: newProfileInput.value.trim(), pin: newProfilePin.value })
+    });
+    const d = await r.json();
+    if (!r.ok) throw new Error(d.error || 'create_failed');
+    newProfileInput.value=''; newProfilePin.value='';
+    await adminFetchProfiles();
+    alert(`Profil créé: ${d.profile}`);
+  } catch (e2) { alert('Création profil impossible'); }
+});

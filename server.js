@@ -78,6 +78,23 @@ const server=http.createServer(async (req,res)=>{
     return send(res,200,JSON.stringify({items}),MIME['.json']);
   }
 
+  if(req.method==='POST' && req.url==='/api/admin/create-profile'){
+    const a=adminAuth(req); if(!a) return send(res,401,JSON.stringify({error:'unauthorized'}),MIME['.json']);
+    try {
+      const d=JSON.parse(await body(req)||'{}');
+      const profile=String(d.profile||'').trim().toLowerCase();
+      const pin=String(d.pin||'').trim();
+      if(!profile||!pin) return send(res,400,JSON.stringify({error:'profile_pin_required'}),MIME['.json']);
+      const db=dbRead();
+      if(db.profiles[profile]) return send(res,409,JSON.stringify({error:'profile_exists'}),MIME['.json']);
+      const salt=crypto.randomBytes(12).toString('hex');
+      db.profiles[profile]={salt,pinHash:hashPin(pin,salt),createdAt:new Date().toISOString(),createdBy:'admin'};
+      db.memory[profile]=db.memory[profile]||[];
+      dbWrite(db);
+      return send(res,200,JSON.stringify({ok:true,profile}),MIME['.json']);
+    } catch { return send(res,500,JSON.stringify({error:'create_failed'}),MIME['.json']); }
+  }
+
   if(req.url.startsWith('/api/')){
     const s=auth(req);
     if(!s) return send(res,401,JSON.stringify({error:'unauthorized'}),MIME['.json']);

@@ -160,7 +160,7 @@ body {
   font-family: 'Cormorant Garamond', serif;
   font-style: italic;
   font-size: 11px;
-  color: rgba(200,158,28,0.38);
+  color: rgba(240,205,110,0.75);
   letter-spacing: 2px;
   white-space: nowrap;
 }
@@ -184,7 +184,7 @@ body {
 .status-txt {
   font-family: 'Space Mono', monospace;
   font-size: 8px; letter-spacing: 2px;
-  color: rgba(200,158,28,0.3);
+  color: rgba(240,205,110,0.8);
   text-transform: uppercase;
   flex: 1;
 }
@@ -195,7 +195,7 @@ body {
 .status-btn {
   background: none;
   border: 1px solid rgba(170,120,25,0.15);
-  color: rgba(200,158,28,0.3);
+  color: rgba(240,205,110,0.8);
   font-family: 'Space Mono', monospace;
   font-size: 7px;
   letter-spacing: 1px;
@@ -231,7 +231,7 @@ body {
   width: 28px; height: 28px;
   border: 1px solid rgba(170,120,25,0.25);
   display: flex; align-items: center; justify-content: center;
-  font-size: 9px; color: rgba(200,158,28,0.5);
+  font-size: 9px; color: rgba(245,220,150,0.9);
   flex-shrink: 0;
   font-family: 'Cinzel', serif;
   letter-spacing: 1px;
@@ -243,14 +243,14 @@ body {
   border: 1px solid rgba(170,120,25,0.09);
   font-family: 'Cormorant Garamond', serif;
   font-size: 13.5px; line-height: 1.72;
-  color: rgba(255,255,255,0.62);
+  color: rgba(255,255,255,0.88);
   max-width: 340px;
   white-space: pre-wrap;
 }
 .msg.u .bub {
   background: rgba(200,158,28,0.07);
   border-color: rgba(200,158,28,0.16);
-  color: rgba(255,255,255,0.85);
+  color: rgba(255,255,255,0.96);
 }
 .bub time {
   display: block;
@@ -287,7 +287,7 @@ body {
   background: rgba(170,120,25,0.03);
   border: 1px solid rgba(170,120,25,0.12);
   padding: 11px 16px;
-  color: rgba(255,215,90,0.72);
+  color: rgba(255,231,170,0.96);
   font-family: 'Cormorant Garamond', serif;
   font-size: 13px;
   outline: none;
@@ -297,7 +297,7 @@ body {
   line-height: 1.5;
 }
 .inp:focus { border-color: rgba(170,120,25,0.28); }
-.inp::placeholder { color: rgba(170,120,25,0.24); font-style: italic; }
+.inp::placeholder { color: rgba(240,205,110,0.52); font-style: italic; }
 
 .btn {
   padding: 0 22px; height: 38px;
@@ -398,7 +398,7 @@ body {
   white-space: pre-wrap;
   font-family: 'Space Mono', monospace;
   font-size: 9px;
-  color: rgba(200,158,28,0.3);
+  color: rgba(240,205,110,0.8);
   line-height: 1.8;
 }
 
