@@ -59,6 +59,20 @@
     </div>
   </div>
 
+  
+  <div id="adminManage" class="admin-manage" style="display:none">
+    <strong class="admin-label">Gestion des comptes</strong>
+    <form id="adminCreateForm" class="admin-create-form">
+      <input id="newProfileInput" class="inp" type="text" placeholder="Identifiant" />
+      <input id="newProfilePin" class="inp" type="password" placeholder="Mot de passe" />
+      <select id="newProfileStatus" class="inp"><option value="active">actif</option><option value="disabled">désactivé</option></select>
+      <label style="color:#f3e3b0;font-size:12px;display:flex;align-items:center;gap:6px"><input id="newProfileIsAdmin" type="checkbox" /> admin</label>
+      <button class="btn" type="submit">CRÉER</button>
+    </form>
+    <pre id="adminProfiles" class="admin-profiles"></pre>
+  </div>
+
+
   <div class="msgs" id="msgs" role="log" aria-live="polite"></div>
 
   <div class="inp-row">
@@ -81,22 +95,12 @@
       <input id="pinInput" type="password" class="inp" placeholder="Mot de passe" required />
       <button type="submit" class="btn btn-full">ENTRER</button>
     </form>
-    <small class="login-hint">Accès réservé aux comptes déjà enregistrés.</small>
+    <small class="login-hint">Accès réservé aux comptes déjà enregistrés. Aucun auto-enregistrement.</small>
     <div class="login-sep"></div>
-    <form id="adminLoginForm" class="login-form">
-      <input id="adminUser" type="text" class="inp" placeholder="Admin user" />
-      <input id="adminPass" type="password" class="inp" placeholder="Admin password" />
-      <button type="submit" class="btn btn-full btn-admin">ADMIN</button>
-    </form>
-    
     <div class="login-sep"></div>
     
 
-    <div id="adminPanel" style="display:none;margin-top:.8rem">
-      <strong class="admin-label">Profils enregistrés</strong>
-      <pre id="adminProfiles" class="admin-profiles"></pre>
     </div>
-  </div>
 </div>
 
 <script src="script.js"></script>

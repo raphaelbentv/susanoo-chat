@@ -413,3 +413,8 @@ body {
   .status-actions { display: none; }
   .bub { max-width: 260px; }
 }
+
+
+.admin-manage{padding:10px 28px;border-bottom:1px solid rgba(170,120,25,0.12);background:rgba(170,120,25,0.04)}
+.admin-create-form{display:grid;grid-template-columns:1fr 1fr 120px auto auto;gap:8px;align-items:center;margin:8px 0}
+.admin-profiles{margin:8px 0 0;color:rgba(255,240,200,.9);font-size:12px;max-height:120px;overflow:auto}
