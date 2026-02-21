@@ -75,13 +75,13 @@
     <div class="ornament bl"></div>
     <div class="ornament br"></div>
     <h2 class="login-title">Identification</h2>
-    <p class="login-sub">Choisissez un profil existant et entrez votre PIN. Création de compte réservée à l'admin.</p>
+    <p class="login-sub">Connectez-vous avec votre identifiant et mot de passe.</p>
     <form id="loginForm" class="login-form">
-      <input id="profileInput" type="text" class="inp" placeholder="Profil (ex: raphael)" required />
-      <input id="pinInput" type="password" class="inp" placeholder="PIN" required />
+      <input id="profileInput" type="text" class="inp" placeholder="Identifiant" required />
+      <input id="pinInput" type="password" class="inp" placeholder="Mot de passe" required />
       <button type="submit" class="btn btn-full">ENTRER</button>
     </form>
-    <small class="login-hint">Ce profil conserve sa mémoire de conversation côté serveur.</small>
+    <small class="login-hint">Accès réservé aux comptes déjà enregistrés.</small>
     <div class="login-sep"></div>
     <form id="adminLoginForm" class="login-form">
       <input id="adminUser" type="text" class="inp" placeholder="Admin user" />
@@ -90,11 +90,7 @@
     </form>
     
     <div class="login-sep"></div>
-    <form id="adminCreateForm" class="login-form">
-      <input id="newProfileInput" type="text" class="inp" placeholder="Nouveau profil" />
-      <input id="newProfilePin" type="password" class="inp" placeholder="PIN initial" />
-      <button type="submit" class="btn btn-full btn-admin">CRÉER PROFIL</button>
-    </form>
+    
 
     <div id="adminPanel" style="display:none;margin-top:.8rem">
       <strong class="admin-label">Profils enregistrés</strong>
