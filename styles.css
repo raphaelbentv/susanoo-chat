@@ -120,7 +120,7 @@ body {
 /* ── CHAT INTERFACE ── */
 .chat {
   position: relative; z-index: 10;
-  width: 520px;
+  width: min(760px, 94vw);
   background: rgba(5,4,3,0.91);
   border: 1px solid rgba(170,120,25,0.25);
   box-shadow:
@@ -415,6 +415,45 @@ body {
 }
 
 
-.admin-manage{padding:10px 28px;border-bottom:1px solid rgba(170,120,25,0.12);background:rgba(170,120,25,0.04)}
-.admin-create-form{display:grid;grid-template-columns:1fr 1fr 120px auto auto;gap:8px;align-items:center;margin:8px 0}
-.admin-profiles{margin:8px 0 0;color:rgba(255,240,200,.9);font-size:12px;max-height:120px;overflow:auto}
+.admin-manage{
+  padding:14px 28px 16px;
+  border-bottom:1px solid rgba(170,120,25,0.18);
+  background:rgba(170,120,25,0.06);
+}
+.admin-create-form{
+  display:grid;
+  grid-template-columns: minmax(120px,1fr) minmax(120px,1fr) 130px 90px 110px;
+  gap:10px;
+  align-items:center;
+  margin:10px 0 6px;
+}
+.admin-create-form .inp{
+  height:38px;
+  padding:8px 12px;
+  font-size:12px;
+}
+.admin-create-form .btn{
+  height:38px;
+  padding:0 14px;
+}
+.admin-profiles{
+  margin:10px 0 0;
+  color:rgba(255,240,200,.95);
+  font-size:12px;
+  line-height:1.6;
+  max-height:180px;
+  overflow:auto;
+  border:1px solid rgba(170,120,25,0.18);
+  background:rgba(0,0,0,0.25);
+  padding:10px;
+}
+
+@media (max-width: 980px) {
+  .chat { width: min(920px, 96vw); }
+  .admin-create-form {
+    grid-template-columns: 1fr 1fr;
+  }
+  .admin-create-form .btn, .admin-create-form select, .admin-create-form label {
+    width: 100%;
+  }
+}
