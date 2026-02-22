@@ -981,8 +981,10 @@ async function loadHashiramaStatus() {
     if (!r.ok) throw new Error('status_failed');
 
     const data = await r.json();
+    console.log('[DEBUG] Hashirama status:', data.status);
     hashiramaStatus = data.status;
-    updateHashiramaConnectionStatus(!data.status.connected);
+    updateHashiramaConnectionStatus(data.status.connected || false);
+    console.log('[DEBUG] Connection status updated');
     renderRightPanel();
   } catch (e) {
     console.error('Failed to load Hashirama status:', e);
@@ -1009,7 +1011,7 @@ function checkHashiramaConnection() {
 
   fetch('/api/hashirama/status', { headers: { Authorization: `Bearer ${token}` } })
     .then(r => r.ok ? r.json() : Promise.reject())
-    .then(data => updateHashiramaConnectionStatus(!data.status.connected))
+    .then(data => updateHashiramaConnectionStatus(data.status.connected || false))
     .catch(() => updateHashiramaConnectionStatus(false));
 }
 
