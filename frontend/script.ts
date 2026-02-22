@@ -67,6 +67,7 @@ let statistics       = null;
 let statsLoaded      = false;
 let notifications    = [];
 let notificationId   = 0;
+let hashiramaStatus  = null;
 
 const ALL_TAGS = ["Venio","Creatio","Arrow","Kuro","MBWAY","EMA","Absys","Bangkok","Instagram","VPS"];
 
@@ -472,19 +473,31 @@ function renderStatusWidget() {
   const remaining = sessionExpiresAt ? Math.max(0, sessionExpiresAt - Date.now()) : 0;
   const sessionPct = sessionExpiresAt ? ((remaining / (24*3600000)) * 100) : 0;
 
+  // Hashirama status data (real or placeholder)
+  let tokensUsedStr = '...';
+  let tokensLimitStr = '...';
+  let tokensPercent = 0;
+  let planStr = 'Chargement...';
+
+  if (hashiramaStatus && !hashiramaStatus.error) {
+    tokensUsedStr = (hashiramaStatus.tokensUsed / 1000).toFixed(0) + 'k';
+    tokensLimitStr = (hashiramaStatus.tokensLimit / 1000000).toFixed(0) + 'M';
+    tokensPercent = hashiramaStatus.percentageUsed || 0;
+    planStr = hashiramaStatus.plan || 'Unknown';
+  }
+
   statusBody.innerHTML =
-    usageBarHtml('Tokens ce mois', '284k', '1M', 28.4) +
+    usageBarHtml('Tokens Hashirama', tokensUsedStr, tokensLimitStr, tokensPercent, tokensPercent > 80 ? 'var(--danger)' : 'var(--gold)') +
     usageBarHtml('Contexte session', tokenCount.toLocaleString('fr-FR'), '200k', (tokenCount/200000)*100) +
     usageBarHtml('Session TTL', formatRemaining(remaining), '24h', sessionPct, remaining < 7200000 ? 'var(--danger)' : 'var(--gold)') +
     '<div class="gold-divider"></div>' +
-    statRowHtml('Modèle', 'Sonnet 4.6') +
+    statRowHtml('Modèle actif', MODELS.find(m => m.id === selectedModel)?.name || selectedModel) +
     statRowHtml('Rôle', role.toUpperCase(), role === 'admin' ? 'success' : '') +
-    statRowHtml('Requêtes/jour', '47 / 1000', 'success') +
-    statRowHtml('Coût estimé', '$0.84') +
-    statRowHtml('Latence moy.', '1.2s', 'success') +
-    statRowHtml('VPS status', '● En ligne', 'success') +
-    statRowHtml('Uptime', '14d 06h', 'success') +
-    statRowHtml('Forfait', 'Pro · API');
+    statRowHtml('Plan Hashirama', planStr) +
+    (!hashiramaStatus ? '<button class="modify-btn" id="loadHashiramaBtn" style="margin-top:8px;font-size:9px;padding:4px 0;">Charger consommation</button>' : '');
+
+  // Add event listener for load button
+  $('#loadHashiramaBtn')?.addEventListener('click', loadHashiramaStatus);
 }
 
 // ── RIGHT PANEL ─────────────────────────────────────────────
@@ -512,7 +525,9 @@ function renderRightPanel() {
       el.addEventListener('click', () => {
         selectedModel = el.dataset.model;
         localStorage.setItem('hashirama_model', selectedModel);
+        console.log('[DEBUG] Model changed to:', selectedModel);
         renderRightPanel();
+        renderStatusWidget();
       });
     });
     $('#tempSlider')?.addEventListener('input', e => { temperature = +e.target.value; renderRightPanel(); });
@@ -951,6 +966,22 @@ async function loadStatistics(period = 'all') {
   }
 }
 
+async function loadHashiramaStatus() {
+  try {
+    const r = await fetch('/api/hashirama/status', {
+      headers: { Authorization: `Bearer ${token}` }
+    });
+
+    if (!r.ok) throw new Error('status_failed');
+
+    const data = await r.json();
+    hashiramaStatus = data.status;
+    renderRightPanel();
+  } catch (e) {
+    console.error('Failed to load Hashirama status:', e);
+  }
+}
+
 async function loadHistory() {
   // Load conversations instead of old memory system
   await loadConversations();
@@ -1028,11 +1059,17 @@ async function login(identifier, password) {
   }
 
   await loadHistory();
+  loadHashiramaStatus(); // Load real API consumption
 }
 
 async function sendMessage() {
+  console.log('[DEBUG] sendMessage called');
   const text = chatInput.value.trim();
-  if (!text || typing || !token) return;
+  console.log('[DEBUG] text:', text, 'typing:', typing, 'token:', !!token);
+  if (!text || typing || !token) {
+    console.log('[DEBUG] sendMessage aborted - conditions not met');
+    return;
+  }
 
   // Create new conversation if none is active
   if (!activeConversationId) {

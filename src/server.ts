@@ -37,6 +37,7 @@ import {
 } from './routes/chat.js';
 import { handleSearch } from './routes/search.js';
 import { handleStatistics } from './routes/statistics.js';
+import { handleHashiramaStatus } from './routes/hashirama.js';
 import {
   handleListConversations,
   handleCreateConversation,
@@ -178,6 +179,10 @@ const server = http.createServer(async (req, res) => {
 
     if (req.method === 'GET' && pathname === '/api/statistics') {
       return handleStatistics(req, res);
+    }
+
+    if (req.method === 'GET' && pathname === '/api/hashirama/status') {
+      return handleHashiramaStatus(req, res);
     }
 
     // ─── CONVERSATIONS ENDPOINTS ───────────────────────────

@@ -10,6 +10,52 @@ interface ChatOptions {
   connectors: string[];
 }
 
+export function getHashiramaStatus(): any {
+  try {
+    const cmd = `docker exec hashirama hashirama status`;
+    const output = execSync(cmd, {
+      encoding: 'utf8',
+      timeout: 10000,
+      maxBuffer: 1024 * 1024,
+    });
+
+    // Parse the status output to extract token usage info
+    const lines = output.trim().split('\n');
+    const status: any = {
+      tokensUsed: 0,
+      tokensLimit: 0,
+      percentageUsed: 0,
+      plan: 'unknown',
+    };
+
+    for (const line of lines) {
+      // Look for token usage info in the output
+      if (line.includes('Tokens') || line.includes('tokens')) {
+        const match = line.match(/(\d+(?:,\d+)*)\s*\/\s*(\d+(?:,\d+)*)/);
+        if (match) {
+          status.tokensUsed = parseInt(match[1].replace(/,/g, ''));
+          status.tokensLimit = parseInt(match[2].replace(/,/g, ''));
+          status.percentageUsed = (status.tokensUsed / status.tokensLimit) * 100;
+        }
+      }
+      if (line.toLowerCase().includes('plan') || line.toLowerCase().includes('abonnement')) {
+        status.plan = line.split(':')[1]?.trim() || 'unknown';
+      }
+    }
+
+    return status;
+  } catch (e) {
+    log('error', 'status_error', { error: (e as Error).message });
+    return {
+      tokensUsed: 0,
+      tokensLimit: 0,
+      percentageUsed: 0,
+      plan: 'error',
+      error: true,
+    };
+  }
+}
+
 export function sendToHashirama(message: string, profile: string, options: ChatOptions): string {
   try {
     // Enrichir le message avec les métadonnées de contexte
