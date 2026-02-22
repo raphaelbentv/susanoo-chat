@@ -12,6 +12,7 @@ import {
   addMessage,
   getMessages,
 } from '../modules/conversations.js';
+import { exportAsMarkdown, exportAsJSON, getExportFilename } from '../modules/export.js';
 import type {
   CreateConversationRequest,
   UpdateConversationRequest,
@@ -197,6 +198,58 @@ export async function handleGetMessages(req: IncomingMessage, res: ServerRespons
     return json(res, 200, { messages });
   } catch (e) {
     log('error', 'get_messages_failed', { error: (e as Error).message });
+    return json(res, 500, { error: 'failed' });
+  }
+}
+
+// GET /api/conversations/:id/export?format=md|json - Export conversation
+export async function handleExportConversation(req: IncomingMessage, res: ServerResponse, conversationId: string): Promise<void> {
+  const session = getSession(req.headers.authorization);
+  if (!session) {
+    return json(res, 401, { error: 'unauthorized' });
+  }
+
+  if (!hasPermission(session.role, 'history_read')) {
+    return json(res, 403, { error: 'forbidden' });
+  }
+
+  try {
+    const url = new URL(req.url || '', `http://${req.headers.host}`);
+    const format = url.searchParams.get('format') as 'md' | 'json' | null;
+
+    if (!format || !['md', 'json'].includes(format)) {
+      return json(res, 400, { error: 'invalid_format' });
+    }
+
+    const conversation = getConversation(conversationId, session.profile);
+
+    if (!conversation) {
+      return json(res, 404, { error: 'conversation_not_found' });
+    }
+
+    let content: string;
+    let mimeType: string;
+
+    if (format === 'md') {
+      content = exportAsMarkdown(conversation, session.profile);
+      mimeType = 'text/markdown';
+    } else {
+      content = exportAsJSON(conversation, session.profile);
+      mimeType = 'application/json';
+    }
+
+    const filename = getExportFilename(conversation, format);
+
+    res.writeHead(200, {
+      'Content-Type': mimeType,
+      'Content-Disposition': `attachment; filename="${filename}"`,
+      'Access-Control-Allow-Origin': '*',
+    });
+    res.end(content);
+
+    log('info', 'conversation_exported', { profile: session.profile, conversationId, format });
+  } catch (e) {
+    log('error', 'export_conversation_failed', { error: (e as Error).message });
     return json(res, 500, { error: 'failed' });
   }
 }

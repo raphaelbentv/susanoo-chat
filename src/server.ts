@@ -35,6 +35,8 @@ import {
   handleMemoryClear,
   handleChat,
 } from './routes/chat.js';
+import { handleSearch } from './routes/search.js';
+import { handleStatistics } from './routes/statistics.js';
 import {
   handleListConversations,
   handleCreateConversation,
@@ -43,6 +45,7 @@ import {
   handleDeleteConversation,
   handleAddMessage,
   handleGetMessages,
+  handleExportConversation,
 } from './routes/conversations.js';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -169,6 +172,14 @@ const server = http.createServer(async (req, res) => {
       return handleChat(req, res);
     }
 
+    if (req.method === 'POST' && pathname === '/api/search') {
+      return handleSearch(req, res);
+    }
+
+    if (req.method === 'GET' && pathname === '/api/statistics') {
+      return handleStatistics(req, res);
+    }
+
     // ─── CONVERSATIONS ENDPOINTS ───────────────────────────
 
     if (req.method === 'GET' && pathname === '/api/conversations') {
@@ -207,6 +218,15 @@ const server = http.createServer(async (req, res) => {
 
       if (req.method === 'POST') {
         return handleAddMessage(req, res, conversationId);
+      }
+    }
+
+    const exportMatch = pathname.match(/^\/api\/conversations\/([a-f0-9]+)\/export$/);
+    if (exportMatch) {
+      const conversationId = exportMatch[1];
+
+      if (req.method === 'GET') {
+        return handleExportConversation(req, res, conversationId);
       }
     }
 

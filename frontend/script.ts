@@ -13,6 +13,7 @@ const sidebarOverlay = $('#sidebarOverlay');
 const sidebarToggle  = $('#sidebarToggle');
 const convSearch     = $('#convSearch');
 const convList       = $('#convList');
+const newConvBtn     = $('#newConvBtn');
 const statusToggle   = $('#statusToggle');
 const statusBody     = $('#statusBody');
 const chatMessages   = $('#chatMessages');
@@ -37,8 +38,9 @@ const optionsModalContent = $('#optionsModalContent');
 // ── STATE ───────────────────────────────────────────────────
 let viewport         = 'desktop';
 let sidebarOpen      = true;
-let activeConv       = 1;
-let messages         = [];
+let conversations    = [];              // Liste de toutes les conversations
+let activeConversationId = '';          // UUID de la conversation active
+let messages         = [];              // Messages de la conversation active
 let typing           = false;
 let token            = sessionStorage.getItem('hashi_token') || '';
 let profile          = sessionStorage.getItem('hashi_profile') || '';
@@ -58,19 +60,14 @@ let loadedThemes     = new Set();
 let selectedModel    = localStorage.getItem('hashirama_model') || 'claude-sonnet-4';
 let deepSearchEnabled = localStorage.getItem('hashirama_deep_search') === 'true';
 let activeConnectors = JSON.parse(localStorage.getItem('hashirama_connectors') || '[]');
+let searchResults    = [];
+let searchDebounce   = null;
+let isSearchMode     = false;
+let statistics       = null;
+let statsLoaded      = false;
+let notifications    = [];
+let notificationId   = 0;
 
-// ── MOCK CONVERSATIONS ──────────────────────────────────────
-const CONVS = [
-  { id:1, title:"Rapport mensuel Venio", preview:"Je compile Creatio, Decisio…", time:"14h32", badge:2, group:"Aujourd'hui" },
-  { id:2, title:"Config Arrow — Auth JWT", preview:"Correction du middleware…", time:"11h08", group:"Aujourd'hui" },
-  { id:3, title:"Plan de cours MBWAY UX/UI", preview:"Module 3 — Prototypage Figma…", time:"Hier", group:"Cette semaine" },
-  { id:4, title:"Analyse SWOT Absys", preview:"Différenciation entrepreneuriale…", time:"20 fév", group:"Cette semaine" },
-  { id:5, title:"Kuro — Prompt système v2", preview:"Révision des instructions…", time:"19 fév", group:"Cette semaine" },
-  { id:6, title:"Script Instagram Reel", preview:"Contenu 53K — format vertical…", time:"19 fév", group:"Cette semaine" },
-  { id:7, title:"Formatio — Qualiopi Q5", preview:"Critère 5 : évaluation…", time:"15 fév", group:"Plus ancien" },
-  { id:8, title:"Hashirama — Design System", preview:"Tokens CSS, Gold Emperor…", time:"12 fév", group:"Plus ancien" },
-  { id:9, title:"Bangkok — Projet immobilier", preview:"Analyse marché Sukhumvit…", time:"10 fév", group:"Plus ancien" },
-];
 const ALL_TAGS = ["Venio","Creatio","Arrow","Kuro","MBWAY","EMA","Absys","Bangkok","Instagram","VPS"];
 
 const THEMES = [
@@ -186,6 +183,7 @@ async function refreshSessionToken() {
 
 function startSessionTimer() {
   if (sessionCheckTimer) clearInterval(sessionCheckTimer);
+  let sessionWarningShown = false;
   sessionCheckTimer = setInterval(() => {
     if (!token || !sessionExpiresAt) return;
     const remaining = sessionExpiresAt - Date.now();
@@ -193,6 +191,11 @@ function startSessionTimer() {
     updateSessionDisplay();
     // Expired
     if (remaining <= 0) { handleSessionExpired(); return; }
+    // Warning at 10min
+    if (remaining < 600000 && !sessionWarningShown) {
+      showNotification('warning', 'Session', 'Votre session expire dans 10 minutes. Rafraîchissez-la pour continuer.', 8000);
+      sessionWarningShown = true;
+    }
     // Auto-refresh when < 2h remaining
     if (remaining < 2 * 3600000) refreshSessionToken();
   }, 60000);
@@ -230,34 +233,238 @@ function validatePinClient(pin) {
 // ══════════════════════════════════════════════════════════
 
 // ── CONVERSATIONS ───────────────────────────────────────────
+async function performSearch(query) {
+  if (!query || query.length < 2) {
+    isSearchMode = false;
+    searchResults = [];
+    renderConversations();
+    return;
+  }
+
+  try {
+    const r = await fetch('/api/search', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${token}`
+      },
+      body: JSON.stringify({ query, limit: 30 })
+    });
+
+    if (!r.ok) throw new Error('search_failed');
+
+    const data = await r.json();
+    searchResults = data.results || [];
+    isSearchMode = true;
+    renderConversations();
+  } catch (e) {
+    console.error('Search failed:', e);
+  }
+}
+
 function renderConversations() {
   const q = convSearch.value.toLowerCase();
-  const groups = ["Aujourd'hui","Cette semaine","Plus ancien"];
+
+  // If in search mode, render search results
+  if (isSearchMode && searchResults.length > 0) {
+    let html = '<div class="conv-group-label">Résultats de recherche</div>';
+
+    for (const result of searchResults) {
+      const time = new Date(result.timestamp).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
+      const roleIcon = result.role === 'user' ? '👤' : '🤖';
+      const snippet = escHtml(result.snippet);
+
+      html += `<div class="conv-item" data-id="${result.conversationId}">
+        <div class="conv-title">${escHtml(result.conversationTitle)}</div>
+        <div class="conv-preview">${roleIcon} ${snippet}</div>
+        <div class="conv-footer">
+          <span class="conv-time">${time}</span>
+        </div>
+      </div>`;
+    }
+
+    convList.innerHTML = html;
+    convList.querySelectorAll('.conv-item').forEach(el => {
+      el.addEventListener('click', () => {
+        switchConversation(el.dataset.id);
+        if (viewport !== 'desktop') closeSidebar();
+      });
+    });
+    return;
+  }
+
+  // Normal mode
+  const now = Date.now();
+  const oneDayAgo = now - 86400000;
+  const oneWeekAgo = now - 7 * 86400000;
+
+  // Group conversations by time
+  const pinned = conversations.filter(c => c.pinned && !c.archived);
+  const today = conversations.filter(c => !c.pinned && !c.archived && c.updatedAt > oneDayAgo);
+  const thisWeek = conversations.filter(c => !c.pinned && !c.archived && c.updatedAt > oneWeekAgo && c.updatedAt <= oneDayAgo);
+  const older = conversations.filter(c => !c.pinned && !c.archived && c.updatedAt <= oneWeekAgo);
+  const archived = conversations.filter(c => c.archived);
+
+  const groups = [
+    { label: 'Épinglées', items: pinned },
+    { label: 'Aujourd\'hui', items: today },
+    { label: 'Cette semaine', items: thisWeek },
+    { label: 'Plus ancien', items: older },
+    { label: 'Archivées', items: archived },
+  ];
+
   let html = '';
   for (const g of groups) {
-    const items = CONVS.filter(c => c.group === g && c.title.toLowerCase().includes(q));
+    const items = g.items.filter(c => c.title.toLowerCase().includes(q) || c.preview.toLowerCase().includes(q));
     if (!items.length) continue;
-    html += `<div class="conv-group-label">${g}</div>`;
+
+    html += `<div class="conv-group-label">${g.label}</div>`;
     for (const c of items) {
-      const active = c.id === activeConv ? ' active' : '';
+      const active = c.id === activeConversationId ? ' active' : '';
+      const time = new Date(c.updatedAt).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
+
       html += `<div class="conv-item${active}" data-id="${c.id}">
-        <div class="conv-title">${escHtml(c.title)}</div>
+        <div class="conv-title">${escHtml(c.title)}${c.pinned ? ' 📌' : ''}</div>
         <div class="conv-preview">${escHtml(c.preview)}</div>
         <div class="conv-footer">
-          <span class="conv-time">${c.time}</span>
-          ${c.badge ? `<span class="conv-badge">${c.badge}</span>` : ''}
+          <span class="conv-time">${time}</span>
+          ${c.messageCount ? `<span class="conv-badge">${c.messageCount}</span>` : ''}
         </div>
       </div>`;
     }
   }
+
+  if (!html && !q) {
+    html = '<div style="padding:20px;text-align:center;color:var(--text-faint);font-size:11px;">Aucune conversation<br><br>Cliquez sur + pour démarrer</div>';
+  } else if (!html && q) {
+    html = '<div style="padding:20px;text-align:center;color:var(--text-faint);font-size:11px;">Aucun résultat</div>';
+  }
+
   convList.innerHTML = html;
   convList.querySelectorAll('.conv-item').forEach(el => {
-    el.addEventListener('click', () => {
-      activeConv = parseInt(el.dataset.id);
-      renderConversations();
+    el.addEventListener('click', (e) => {
+      // Context menu on right click
+      if (e.button === 2 || e.ctrlKey) {
+        e.preventDefault();
+        showConversationMenu(el.dataset.id, e.clientX, e.clientY);
+        return;
+      }
+
+      // Normal click - switch conversation
+      switchConversation(el.dataset.id);
       if (viewport !== 'desktop') closeSidebar();
     });
+
+    // Right click menu
+    el.addEventListener('contextmenu', (e) => {
+      e.preventDefault();
+      showConversationMenu(el.dataset.id, e.clientX, e.clientY);
+    });
   });
+}
+
+function showConversationMenu(conversationId, x, y) {
+  const conv = conversations.find(c => c.id === conversationId);
+  if (!conv) return;
+
+  const menu = document.createElement('div');
+  menu.style.cssText = `position:fixed;left:${x}px;top:${y}px;background:var(--surface);border:1px solid var(--border);padding:4px;z-index:10000;min-width:150px;box-shadow:0 4px 20px rgba(0,0,0,0.5);`;
+
+  const actions = [
+    { label: '✏️ Renommer', action: () => renameConversation(conversationId) },
+    { label: conv.pinned ? '📌 Désépingler' : '📌 Épingler', action: () => updateConversation(conversationId, { pinned: !conv.pinned }) },
+    { label: conv.archived ? '📂 Désarchiver' : '📁 Archiver', action: () => updateConversation(conversationId, { archived: !conv.archived }) },
+    { label: '💾 Exporter...', action: () => showExportMenu(conversationId, x + 160, y) },
+    { label: '🗑️ Supprimer', action: () => deleteConversation(conversationId) },
+  ];
+
+  menu.innerHTML = actions.map(a =>
+    `<div style="padding:6px 10px;cursor:pointer;font-size:12px;color:var(--text);" class="menu-item">${a.label}</div>`
+  ).join('');
+
+  menu.querySelectorAll('.menu-item').forEach((el, idx) => {
+    el.addEventListener('click', () => {
+      actions[idx].action();
+      document.body.removeChild(menu);
+    });
+    el.addEventListener('mouseenter', () => el.style.background = 'var(--gold-faint)');
+    el.addEventListener('mouseleave', () => el.style.background = 'transparent');
+  });
+
+  document.body.appendChild(menu);
+
+  const closeMenu = () => {
+    if (document.body.contains(menu)) document.body.removeChild(menu);
+    document.removeEventListener('click', closeMenu);
+  };
+  setTimeout(() => document.addEventListener('click', closeMenu), 100);
+}
+
+function renameConversation(conversationId) {
+  const conv = conversations.find(c => c.id === conversationId);
+  if (!conv) return;
+
+  const newTitle = prompt('Nouveau titre:', conv.title);
+  if (newTitle && newTitle.trim()) {
+    updateConversation(conversationId, { title: newTitle.trim() });
+  }
+}
+
+function showExportMenu(conversationId, x, y) {
+  const menu = document.createElement('div');
+  menu.style.cssText = `position:fixed;left:${x}px;top:${y}px;background:var(--surface);border:1px solid var(--border);padding:4px;z-index:10001;min-width:120px;box-shadow:0 4px 20px rgba(0,0,0,0.5);`;
+
+  const formats = [
+    { label: '📄 Markdown', format: 'md' },
+    { label: '📋 JSON', format: 'json' },
+  ];
+
+  menu.innerHTML = formats.map(f =>
+    `<div style="padding:6px 10px;cursor:pointer;font-size:12px;color:var(--text);" class="menu-item" data-format="${f.format}">${f.label}</div>`
+  ).join('');
+
+  menu.querySelectorAll('.menu-item').forEach(el => {
+    el.addEventListener('click', () => {
+      exportConversation(conversationId, el.dataset.format);
+      if (document.body.contains(menu)) document.body.removeChild(menu);
+    });
+    el.addEventListener('mouseenter', () => el.style.background = 'var(--gold-faint)');
+    el.addEventListener('mouseleave', () => el.style.background = 'transparent');
+  });
+
+  document.body.appendChild(menu);
+
+  const closeMenu = () => {
+    if (document.body.contains(menu)) document.body.removeChild(menu);
+    document.removeEventListener('click', closeMenu);
+  };
+  setTimeout(() => document.addEventListener('click', closeMenu), 100);
+}
+
+async function exportConversation(conversationId, format) {
+  try {
+    const url = `/api/conversations/${conversationId}/export?format=${format}`;
+    const r = await fetch(url, {
+      headers: { Authorization: `Bearer ${token}` }
+    });
+
+    if (!r.ok) throw new Error('export_failed');
+
+    const blob = await r.blob();
+    const disposition = r.headers.get('Content-Disposition');
+    const filenameMatch = disposition?.match(/filename="(.+)"/);
+    const filename = filenameMatch ? filenameMatch[1] : `export.${format}`;
+
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(a.href);
+  } catch (e) {
+    alert('Échec de l\'export. Vérifiez votre connexion.');
+  }
 }
 
 // ── STATUS WIDGET ───────────────────────────────────────────
@@ -316,7 +523,7 @@ function renderRightPanel() {
   const accCtx = $('#accContextBody');
   if (accCtx) {
     const remaining = sessionExpiresAt ? Math.max(0, sessionExpiresAt - Date.now()) : 0;
-    accCtx.innerHTML =
+    let html =
       usageBarHtml('Tokens utilisés', tokenCount.toLocaleString('fr-FR'), '200k', (tokenCount/200000)*100) +
       statRowHtml('Input session', Math.round(tokenCount*0.7).toLocaleString('fr-FR')) +
       statRowHtml('Output session', Math.round(tokenCount*0.3).toLocaleString('fr-FR')) +
@@ -325,6 +532,42 @@ function renderRightPanel() {
       statRowHtml('Coût session', `$${(tokenCount*0.000004).toFixed(3)}`) +
       statRowHtml('Session expire', formatRemaining(remaining), remaining < 7200000 ? '' : 'success') +
       statRowHtml('Rôle', role.toUpperCase(), role === 'admin' ? 'success' : '');
+
+    // Statistics section
+    if (statsLoaded && statistics) {
+      html += '<div class="gold-divider" style="margin-top:14px;"></div>';
+      html += '<div style="margin-top:10px;font-size:9px;color:var(--gold);opacity:0.5;text-transform:uppercase;letter-spacing:2px;">Statistiques globales</div>';
+      html += statRowHtml('Conversations', String(statistics.totalConversations));
+      html += statRowHtml('Messages totaux', statistics.totalMessages.toLocaleString('fr-FR'));
+      html += statRowHtml('Tokens totaux', statistics.totalTokens.toLocaleString('fr-FR'));
+      html += statRowHtml('Coût total', `$${statistics.totalCost.toFixed(2)}`);
+      html += statRowHtml('Moy. msg/jour', statistics.averageMessagesPerDay.toFixed(1));
+
+      // Model usage chart (simple bars)
+      if (statistics.modelUsage.length > 0) {
+        html += '<div class="gold-divider" style="margin-top:10px;"></div>';
+        html += '<div style="margin-top:8px;font-size:9px;color:var(--gold);opacity:0.5;text-transform:uppercase;letter-spacing:2px;">Modèles utilisés</div>';
+        for (const model of statistics.modelUsage) {
+          html += `<div style="margin:6px 0;">
+            <div style="display:flex;justify-content:space-between;font-size:9px;margin-bottom:2px;">
+              <span style="color:var(--text-faint);">${model.model}</span>
+              <span style="color:var(--gold);">${model.percentage.toFixed(0)}%</span>
+            </div>
+            <div style="height:3px;background:rgba(170,120,25,0.1);">
+              <div style="height:100%;width:${model.percentage}%;background:var(--gold);"></div>
+            </div>
+          </div>`;
+        }
+      }
+    } else {
+      html += '<div class="gold-divider" style="margin-top:14px;"></div>';
+      html += '<button class="modify-btn" id="loadStatsBtn">Charger les statistiques</button>';
+    }
+
+    accCtx.innerHTML = html;
+
+    // Add event listener for load stats button
+    $('#loadStatsBtn')?.addEventListener('click', () => loadStatistics('all'));
   }
 
   // System prompt
@@ -586,24 +829,151 @@ async function api(path, body) {
   return d;
 }
 
-async function loadHistory() {
+// ── CONVERSATIONS API ───────────────────────────────────────
+async function loadConversations() {
   try {
-    const r = await fetch('/api/history', { headers: { 'Authorization': `Bearer ${token}` } });
+    const r = await fetch('/api/conversations', { headers: authHeaders() });
     if (r.status === 401) { handleSessionExpired(); return; }
     const d = await r.json();
-    if (d.role) role = d.role;
-    messages = (d.items || []).map((m, i) => ({
-      id: i, role: m.role === 'user' ? 'user' : 'ai',
-      text: m.text, time: m.time || '',
-      meta: m.role === 'ai' ? 'claude-sonnet-4-6' : undefined,
-    }));
-    tokenCount = messages.reduce((acc, m) => acc + Math.round(m.text.length * 0.3), 0);
-    if (!messages.length) addMessage('ai', `Je suis prêt à vous servir, Maître. Que désirez-vous accomplir aujourd'hui ?`);
-    renderMessages();
-    if (ctxTokens) ctxTokens.textContent = tokenCount.toLocaleString('fr-FR') + ' tk';
+    if (r.ok) {
+      conversations = d.items || [];
+      renderConversations();
+    }
+  } catch (e) {
+    console.error('[loadConversations]', e);
+  }
+}
+
+async function createNewConversation(title = '') {
+  try {
+    const r = await fetch('/api/conversations', {
+      method: 'POST',
+      headers: authHeaders(),
+      body: JSON.stringify({ title: title || undefined }),
+    });
+    if (r.status === 401) { handleSessionExpired(); return null; }
+    const d = await r.json();
+    if (r.ok) {
+      const conv = d.conversation;
+      conversations.unshift(conv);
+      renderConversations();
+      return conv;
+    }
+  } catch (e) {
+    console.error('[createNewConversation]', e);
+  }
+  return null;
+}
+
+async function switchConversation(conversationId) {
+  try {
+    activeConversationId = conversationId;
+    const r = await fetch(`/api/conversations/${conversationId}/messages`, { headers: authHeaders() });
+    if (r.status === 401) { handleSessionExpired(); return; }
+    const d = await r.json();
+    if (r.ok) {
+      messages = d.messages.map(m => ({
+        role: m.role,
+        text: m.content,
+        time: new Date(m.timestamp).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' }),
+        meta: m.metadata.model ? `${m.metadata.tokensUsed || 0} tokens · ${m.metadata.model}` : '',
+      }));
+      tokenCount = d.messages.reduce((sum, m) => sum + (m.metadata.tokensUsed || 0), 0);
+      renderMessages();
+      renderConversations();
+      renderRightPanel();
+    }
+  } catch (e) {
+    console.error('[switchConversation]', e);
+  }
+}
+
+async function updateConversation(conversationId, updates) {
+  try {
+    const r = await fetch(`/api/conversations/${conversationId}`, {
+      method: 'PUT',
+      headers: authHeaders(),
+      body: JSON.stringify(updates),
+    });
+    if (r.status === 401) { handleSessionExpired(); return false; }
+    const d = await r.json();
+    if (r.ok) {
+      const idx = conversations.findIndex(c => c.id === conversationId);
+      if (idx !== -1) conversations[idx] = { ...conversations[idx], ...updates };
+      renderConversations();
+      return true;
+    }
+  } catch (e) {
+    console.error('[updateConversation]', e);
+  }
+  return false;
+}
+
+async function deleteConversation(conversationId) {
+  if (!confirm('Supprimer cette conversation?')) return false;
+
+  try {
+    const r = await fetch(`/api/conversations/${conversationId}`, {
+      method: 'DELETE',
+      headers: authHeaders(),
+    });
+    if (r.status === 401) { handleSessionExpired(); return false; }
+    if (r.ok) {
+      conversations = conversations.filter(c => c.id !== conversationId);
+      if (activeConversationId === conversationId) {
+        activeConversationId = '';
+        messages = [];
+        renderMessages();
+      }
+      renderConversations();
+      return true;
+    }
+  } catch (e) {
+    console.error('[deleteConversation]', e);
+  }
+  return false;
+}
+
+async function loadStatistics(period = 'all') {
+  try {
+    const r = await fetch(`/api/statistics?period=${period}`, {
+      headers: { Authorization: `Bearer ${token}` }
+    });
+
+    if (!r.ok) throw new Error('stats_failed');
+
+    const data = await r.json();
+    statistics = data.statistics;
+    statsLoaded = true;
     renderRightPanel();
-    renderStatusWidget();
-  } catch (e) { console.error('[loadHistory]', e); }
+  } catch (e) {
+    console.error('Failed to load statistics:', e);
+  }
+}
+
+async function loadHistory() {
+  // Load conversations instead of old memory system
+  await loadConversations();
+
+  // If no conversations, welcome message
+  if (conversations.length === 0) {
+    messages = [{
+      role: 'ai',
+      text: 'Je suis prêt à vous servir, Maître. Que désirez-vous accomplir aujourd\'hui ?',
+      time: nowLabel(),
+      meta: ''
+    }];
+    renderMessages();
+  } else {
+    // Load most recent conversation
+    const recent = conversations[0];
+    if (recent) {
+      await switchConversation(recent.id);
+    }
+  }
+
+  renderRightPanel();
+  renderStatusWidget();
 }
 
 async function login(identifier, password) {
@@ -663,10 +1033,32 @@ async function login(identifier, password) {
 async function sendMessage() {
   const text = chatInput.value.trim();
   if (!text || typing || !token) return;
+
+  // Create new conversation if none is active
+  if (!activeConversationId) {
+    const newConv = await createNewConversation();
+    if (!newConv) return;
+    activeConversationId = newConv.id;
+  }
+
   addMessage('user', text);
   chatInput.value = '';
   chatInput.style.height = 'auto';
-  api('/api/memory/add', { role: 'user', text }).catch(() => {});
+
+  // Add user message to conversation
+  await fetch(`/api/conversations/${activeConversationId}/messages`, {
+    method: 'POST',
+    headers: authHeaders(),
+    body: JSON.stringify({
+      role: 'user',
+      content: text,
+      metadata: {
+        contexts: activeTags,
+        connectors: activeConnectors,
+      },
+    }),
+  }).catch(() => {});
+
   typing = true;
   renderMessages();
   sendBtn.disabled = true;
@@ -688,12 +1080,35 @@ async function sendMessage() {
     typing = false;
     sendBtn.disabled = false;
     if (!r.ok) throw new Error(d.error || 'chat_error');
+
     const reply = d.reply || 'Réponse vide.';
     const toks = d.tokensUsed || Math.round(reply.length * 0.3);
     const modelName = MODELS.find(m => m.id === selectedModel)?.name || selectedModel;
     addMessage('ai', reply, `${toks} tokens · ${modelName}`);
     tokenCount += toks;
-    api('/api/memory/add', { role: 'ai', text: reply }).catch(() => {});
+
+    // Add AI message to conversation
+    await fetch(`/api/conversations/${activeConversationId}/messages`, {
+      method: 'POST',
+      headers: authHeaders(),
+      body: JSON.stringify({
+        role: 'ai',
+        content: reply,
+        metadata: {
+          model: selectedModel,
+          tokensUsed: toks,
+          temperature: temperature / 100,
+          maxTokens: Math.round(maxTokens * 81.92),
+          deepSearch: deepSearchEnabled,
+          contexts: activeTags,
+          connectors: activeConnectors,
+        },
+      }),
+    }).catch(() => {});
+
+    // Reload conversations to update preview
+    await loadConversations();
+
     renderRightPanel();
     renderStatusWidget();
   } catch (e) {
@@ -722,12 +1137,220 @@ function updateSessionMarker() {
   sessionMarker.textContent = `Session · ${now.getDate()} ${months[now.getMonth()]} ${now.getFullYear()} · ${nowLabel()}`;
 }
 
+// ── NOTIFICATIONS ───────────────────────────────────────────
+function showNotification(type, title, message, duration = 5000) {
+  const id = ++notificationId;
+  const notification = { id, type, title, message, timestamp: Date.now() };
+  notifications.push(notification);
+
+  const toast = document.createElement('div');
+  toast.id = `toast-${id}`;
+  toast.style.cssText = `
+    position:fixed;top:${20 + notifications.length * 10}px;right:20px;
+    min-width:300px;max-width:400px;
+    background:var(--surface);border:1px solid var(--border);
+    padding:12px 16px;z-index:9999;
+    box-shadow:0 4px 20px rgba(0,0,0,0.5);
+    animation:slideInRight 0.3s ease-out;
+  `;
+
+  const colors = {
+    info: 'var(--gold)',
+    success: 'var(--success)',
+    warning: '#f39c12',
+    error: 'var(--danger)',
+  };
+
+  const icons = {
+    info: 'ℹ️',
+    success: '✓',
+    warning: '⚠️',
+    error: '✕',
+  };
+
+  toast.innerHTML = `
+    <div style="display:flex;gap:10px;align-items:start;">
+      <div style="font-size:18px;">${icons[type] || 'ℹ️'}</div>
+      <div style="flex:1;">
+        <div style="font-family:var(--font-display);font-size:11px;color:${colors[type]};margin-bottom:4px;letter-spacing:1px;text-transform:uppercase;">${title}</div>
+        <div style="font-size:10px;color:var(--text-dim);line-height:1.5;">${message}</div>
+      </div>
+      <button style="background:none;border:none;color:var(--text-faint);cursor:pointer;font-size:14px;padding:0;width:16px;height:16px;" onclick="document.body.removeChild(document.getElementById('toast-${id}'))">✕</button>
+    </div>
+  `;
+
+  document.body.appendChild(toast);
+
+  // Auto-dismiss
+  if (duration > 0) {
+    setTimeout(() => {
+      if (document.body.contains(toast)) {
+        toast.style.animation = 'slideOutRight 0.3s ease-in';
+        setTimeout(() => {
+          if (document.body.contains(toast)) document.body.removeChild(toast);
+        }, 300);
+      }
+      notifications = notifications.filter(n => n.id !== id);
+    }, duration);
+  }
+}
+
+// Add CSS animation
+if (!document.getElementById('toast-animations')) {
+  const style = document.createElement('style');
+  style.id = 'toast-animations';
+  style.textContent = `
+    @keyframes slideInRight {
+      from { transform: translateX(400px); opacity: 0; }
+      to { transform: translateX(0); opacity: 1; }
+    }
+    @keyframes slideOutRight {
+      from { transform: translateX(0); opacity: 1; }
+      to { transform: translateX(400px); opacity: 0; }
+    }
+  `;
+  document.head.appendChild(style);
+}
+
+// ── KEYBOARD SHORTCUTS ──────────────────────────────────────
+function handleGlobalShortcuts(e) {
+  const isMac = navigator.platform.toUpperCase().indexOf('MAC') >= 0;
+  const cmdKey = isMac ? e.metaKey : e.ctrlKey;
+
+  // Ignore if typing in input/textarea (except specific shortcuts)
+  const target = e.target;
+  const isInput = target.tagName === 'INPUT' || target.tagName === 'TEXTAREA';
+
+  // Esc: Close modals
+  if (e.key === 'Escape') {
+    if (!loginModal.classList.contains('hidden')) loginModal.classList.add('hidden');
+    if (optionsModal && !optionsModal.classList.contains('hidden')) optionsModal.classList.add('hidden');
+    return;
+  }
+
+  // Don't interfere with typing (except global shortcuts)
+  if (isInput && !cmdKey) return;
+
+  // Ctrl/Cmd + K: Focus search
+  if (cmdKey && e.key === 'k') {
+    e.preventDefault();
+    convSearch.focus();
+    return;
+  }
+
+  // Ctrl/Cmd + N: New conversation
+  if (cmdKey && e.key === 'n') {
+    e.preventDefault();
+    createNewConversation().then(conv => {
+      if (conv) {
+        activeConversationId = conv.id;
+        messages = [];
+        renderConversations();
+        renderMessages();
+      }
+    });
+    return;
+  }
+
+  // Ctrl/Cmd + E: Export active conversation
+  if (cmdKey && e.key === 'e') {
+    e.preventDefault();
+    if (activeConversationId) {
+      exportConversation(activeConversationId, 'md');
+    }
+    return;
+  }
+
+  // Ctrl/Cmd + B: Toggle sidebar
+  if (cmdKey && e.key === 'b') {
+    e.preventDefault();
+    toggleSidebar();
+    return;
+  }
+
+  // Ctrl/Cmd + /: Show shortcuts
+  if (cmdKey && e.key === '/') {
+    e.preventDefault();
+    showShortcutsHelp();
+    return;
+  }
+}
+
+function showShortcutsHelp() {
+  const isMac = navigator.platform.toUpperCase().indexOf('MAC') >= 0;
+  const cmd = isMac ? '⌘' : 'Ctrl';
+
+  const shortcuts = [
+    { keys: `${cmd} + K`, action: 'Focus recherche' },
+    { keys: `${cmd} + N`, action: 'Nouvelle conversation' },
+    { keys: `${cmd} + E`, action: 'Exporter la conversation' },
+    { keys: `${cmd} + B`, action: 'Afficher/masquer sidebar' },
+    { keys: `${cmd} + /`, action: 'Afficher les raccourcis' },
+    { keys: 'Esc', action: 'Fermer les modaux' },
+    { keys: 'Enter', action: 'Envoyer le message' },
+    { keys: 'Shift + Enter', action: 'Nouvelle ligne' },
+  ];
+
+  const html = `
+    <div style="position:fixed;inset:0;background:rgba(0,0,0,0.85);z-index:9999;display:flex;align-items:center;justify-content:center;" id="shortcutsModal">
+      <div style="background:var(--surface);border:1px solid var(--border);padding:24px;max-width:500px;width:90%;">
+        <div style="font-family:var(--font-display);font-size:16px;color:var(--gold);margin-bottom:16px;text-transform:uppercase;letter-spacing:3px;">Raccourcis Clavier</div>
+        ${shortcuts.map(s => `
+          <div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--border-dim);">
+            <span style="color:var(--text-faint);font-size:11px;">${s.action}</span>
+            <span style="color:var(--gold);font-family:var(--font-mono);font-size:10px;border:1px solid var(--border-dim);padding:2px 8px;background:var(--gold-faint);">${s.keys}</span>
+          </div>
+        `).join('')}
+        <button class="modify-btn" style="margin-top:16px;" id="closeShortcuts">Fermer</button>
+      </div>
+    </div>
+  `;
+
+  const modal = document.createElement('div');
+  modal.innerHTML = html;
+  document.body.appendChild(modal);
+
+  const closeBtn = $('#closeShortcuts');
+  closeBtn?.addEventListener('click', () => document.body.removeChild(modal));
+  $('#shortcutsModal')?.addEventListener('click', (e) => {
+    if (e.target.id === 'shortcutsModal') document.body.removeChild(modal);
+  });
+}
+
 // ══════════════════════════════════════════════════════════
 // EVENT LISTENERS
 // ══════════════════════════════════════════════════════════
+document.addEventListener('keydown', handleGlobalShortcuts);
 sidebarToggle.addEventListener('click', toggleSidebar);
 sidebarOverlay.addEventListener('click', closeSidebar);
-convSearch.addEventListener('input', renderConversations);
+convSearch.addEventListener('input', (e) => {
+  const query = e.target.value.trim();
+
+  // Clear previous debounce
+  if (searchDebounce) clearTimeout(searchDebounce);
+
+  // If query is empty, reset to normal mode
+  if (query.length === 0) {
+    isSearchMode = false;
+    searchResults = [];
+    renderConversations();
+    return;
+  }
+
+  // Debounce search (wait 500ms after typing stops)
+  searchDebounce = setTimeout(() => {
+    performSearch(query);
+  }, 500);
+});
+newConvBtn.addEventListener('click', async () => {
+  const newConv = await createNewConversation();
+  if (newConv) {
+    activeConversationId = newConv.id;
+    messages = [];
+    renderConversations();
+    renderMessages();
+  }
+});
 
 chatInput.addEventListener('input', () => {
   chatInput.style.height = 'auto';
