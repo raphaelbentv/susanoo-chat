@@ -37,6 +37,7 @@ const optionsModalContent = $('#optionsModalContent');
 const hashiramaConnectionDot = $('#hashiramaConnectionDot');
 const claudeToggle = $('#claudeToggle');
 const claudeToggleInput = $('#claudeToggleInput') as HTMLInputElement;
+const adminToggle = $('#adminToggle');
 const artifactPanel = $('#artifactPanel');
 const artifactFrame = $('#artifactFrame') as HTMLIFrameElement;
 const artifactName = $('#artifactName');
@@ -59,6 +60,7 @@ let typing           = false;
 let token            = sessionStorage.getItem('hashi_token') || '';
 let profile          = sessionStorage.getItem('hashi_profile') || '';
 let role             = sessionStorage.getItem('hashi_role') || 'user';
+let isAdmin          = sessionStorage.getItem('hashi_is_admin') === 'true';
 let adminToken       = sessionStorage.getItem('hashi_admin_token') || '';
 let activeTags       = ['Venio'];
 let temperature      = 80;
@@ -1274,17 +1276,10 @@ async function login(identifier, password) {
     throw new Error(d.error || 'Erreur de connexion');
   }
 
-  // Handle admin login
-  if (d.type === 'admin') {
-    adminToken = d.token;
-    sessionStorage.setItem('hashi_admin_token', adminToken);
-    await adminFetchProfiles();
-    loginModal.classList.add('hidden');
-    statusLabel.textContent = 'Admin · Actif';
-    return;
-  }
-
   // Handle profile login
+  isAdmin = d.isAdmin || false;
+  sessionStorage.setItem('hashi_is_admin', String(isAdmin));
+
   saveSession(d.token, d.identifier, d.role || 'user', d.expiresAt || Date.now() + 86400000);
 
   // Apply theme from server preferences
@@ -1310,9 +1305,15 @@ async function login(identifier, password) {
     console.error('[DEBUG] claudeToggle element not found!');
   }
 
-  // Also show options button
+  // Show options button
   if (optionsToggle) {
     optionsToggle.style.display = 'flex';
+  }
+
+  // Show admin button if user is admin
+  if (isAdmin && adminToggle) {
+    adminToggle.style.display = 'flex';
+    console.log('[DEBUG] Admin toggle displayed for admin user');
   }
 
   if (d.pinExpired) {
@@ -1437,20 +1438,12 @@ async function sendMessage() {
 }
 
 // ── ADMIN DASHBOARD ─────────────────────────────────────────
-async function adminFetchProfiles() {
-  const r = await fetch('/api/admin/profiles', { headers: { Authorization: `Bearer ${adminToken}` } });
+async function loadAdminData() {
+  const r = await fetch('/api/admin/profiles', { headers: { Authorization: `Bearer ${token}` } });
   const d = await r.json();
   if (!r.ok) throw new Error('admin_fail');
 
-  // Old simple display (kept for backward compatibility)
-  adminPanel.style.display = 'block';
-  adminProfiles.textContent = (d.items || []).map(p =>
-    `${p.disabled?'[DISABLED] ':''}${p.name} | rôle=${p.role} | msgs=${p.messages} | login=${p.lastLogin||'jamais'}${p.pinExpired?' | ⚠ PIN EXPIRÉ':''}`
-  ).join('\n') || 'Aucun profil';
-
-  // New dashboard
   adminUsers = d.items || [];
-  showAdminDashboard();
 }
 
 function showAdminDashboard() {
@@ -1464,6 +1457,9 @@ function hideAdminDashboard() {
 
 function renderAdminUsers() {
   adminTabUsers.innerHTML = `
+    <div style="margin-bottom:16px;">
+      <button class="admin-action-btn" onclick="adminCreateUser()" style="background:rgba(170,120,25,0.15);border-color:var(--gold);color:var(--gold);">➕ Créer un utilisateur</button>
+    </div>
     <div class="admin-user-grid">
       ${adminUsers.map(user => `
         <div class="admin-user-card" data-user="${user.name}">
@@ -1607,8 +1603,52 @@ async function adminDeleteUser(username: string) {
   }
 }
 
+async function adminCreateUser() {
+  const username = prompt('Nom du nouvel utilisateur:\n(Sera converti en minuscules)');
+  if (!username) return;
+
+  const normalizedUsername = username.trim().toLowerCase();
+  if (!normalizedUsername) {
+    alert('Nom d\'utilisateur invalide');
+    return;
+  }
+
+  const password = prompt(`Créer le mot de passe pour ${normalizedUsername}:\n\nExigences:\n- Min. 8 caractères\n- 1 majuscule\n- 1 minuscule\n- 1 chiffre`);
+  if (!password) return;
+
+  const confirmPassword = prompt('Confirmez le mot de passe:');
+  if (password !== confirmPassword) {
+    alert('Les mots de passe ne correspondent pas');
+    return;
+  }
+
+  // Simulate profile creation by logging in with new credentials
+  // This will auto-create the profile on the backend
+  try {
+    const r = await fetch('/api/login', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ identifier: normalizedUsername, password })
+    });
+
+    const d = await r.json();
+    if (r.ok) {
+      alert(`✅ Utilisateur ${normalizedUsername} créé avec succès!\n\nLe nouveau compte peut maintenant se connecter.`);
+      await reloadAdminUsers();
+    } else {
+      if (d.error === 'password_policy_failed') {
+        alert('Mot de passe invalide:\n' + (d.details || []).join('\n'));
+      } else {
+        alert(`Erreur: ${d.error || 'Échec de la création'}`);
+      }
+    }
+  } catch (e) {
+    alert('Erreur réseau');
+  }
+}
+
 async function reloadAdminUsers() {
-  const r = await fetch('/api/admin/profiles', { headers: { Authorization: `Bearer ${adminToken}` } });
+  const r = await fetch('/api/admin/profiles', { headers: { Authorization: `Bearer ${token}` } });
   const d = await r.json();
   if (r.ok) {
     adminUsers = d.items || [];
@@ -1621,6 +1661,7 @@ async function reloadAdminUsers() {
 (window as any).adminResetPin = adminResetPin;
 (window as any).adminToggleDisable = adminToggleDisable;
 (window as any).adminDeleteUser = adminDeleteUser;
+(window as any).adminCreateUser = adminCreateUser;
 
 // ── SESSION MARKER ──────────────────────────────────────────
 function updateSessionMarker() {
@@ -2036,6 +2077,11 @@ artifactDownload?.addEventListener('click', downloadArtifact);
 
 // Admin dashboard event listeners
 adminDashboardClose?.addEventListener('click', hideAdminDashboard);
+adminToggle?.addEventListener('click', async () => {
+  if (!isAdmin) return;
+  await loadAdminData();
+  showAdminDashboard();
+});
 
 // Admin tabs switching
 $$('.admin-tab').forEach(tab => {
@@ -2064,7 +2110,7 @@ $$('.admin-tab').forEach(tab => {
 async function loadAdminAuditLog() {
   try {
     const r = await fetch('/api/admin/audit', {
-      headers: { Authorization: `Bearer ${adminToken}` }
+      headers: { Authorization: `Bearer ${token}` }
     });
     const d = await r.json();
     if (r.ok) {
@@ -2089,7 +2135,7 @@ async function loadAdminAuditLog() {
 async function loadAdminBackups() {
   try {
     const r = await fetch('/api/admin/backups', {
-      headers: { Authorization: `Bearer ${adminToken}` }
+      headers: { Authorization: `Bearer ${token}` }
     });
     const d = await r.json();
     if (r.ok) {
@@ -2121,7 +2167,7 @@ async function createAdminBackup() {
   try {
     const r = await fetch('/api/admin/backup/create', {
       method: 'POST',
-      headers: { Authorization: `Bearer ${adminToken}` }
+      headers: { Authorization: `Bearer ${token}` }
     });
     const d = await r.json();
     if (r.ok) {

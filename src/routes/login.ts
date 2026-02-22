@@ -133,6 +133,7 @@ export async function handleUnifiedLogin(req: IncomingMessage, res: ServerRespon
       token,
       identifier,
       role: profile.role,
+      isAdmin: profile.isAdmin || false,
       type: 'profile',
       expiresAt: Date.now() + CONFIG.SESSION_TTL_MS,
       pinExpired: isPinExpired(profile),
