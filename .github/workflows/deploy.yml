@@ -17,14 +17,21 @@ jobs:
           script: |
             cd /workspace/hashirama-chat-susanoo
             git pull origin main
+
+            # Install dependencies if needed
+            npm install --production=false
+
+            # Build TypeScript
+            npm run build
+
             # Restart the service (try systemctl, fallback to process kill + restart)
             if command -v systemctl &>/dev/null; then
               systemctl restart hashirama-chat
             else
-              pkill -f "node.*server.js" || true
+              pkill -f "node.*dist/server.js" || pkill -f "node.*server.js" || true
               sleep 1
               cd /workspace/hashirama-chat-susanoo
-              PORT=8090 nohup node server.js > /var/log/susanoo.log 2>&1 &
+              PORT=8090 nohup node dist/server.js > /var/log/susanoo.log 2>&1 &
             fi
             sleep 2
             curl -sf http://localhost:8090/api/health && echo "Deploy OK" || echo "Deploy FAILED"
