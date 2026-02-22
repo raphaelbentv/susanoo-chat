@@ -34,6 +34,7 @@ const optionsToggle  = $('#optionsToggle');
 const optionsModal   = $('#optionsModal');
 const closeOptions   = $('#closeOptions');
 const optionsModalContent = $('#optionsModalContent');
+const hashiramaConnectionDot = $('#hashiramaConnectionDot');
 
 // ── STATE ───────────────────────────────────────────────────
 let viewport         = 'desktop';
@@ -861,21 +862,27 @@ async function loadConversations() {
 
 async function createNewConversation(title = '') {
   try {
+    console.log('[DEBUG] createNewConversation - Sending request...');
     const r = await fetch('/api/conversations', {
       method: 'POST',
       headers: authHeaders(),
       body: JSON.stringify({ title: title || undefined }),
     });
+    console.log('[DEBUG] createNewConversation - Response:', r.status, r.statusText);
     if (r.status === 401) { handleSessionExpired(); return null; }
     const d = await r.json();
+    console.log('[DEBUG] createNewConversation - Data:', d);
     if (r.ok) {
       const conv = d.conversation;
       conversations.unshift(conv);
       renderConversations();
+      console.log('[DEBUG] createNewConversation - Success:', conv);
       return conv;
+    } else {
+      console.error('[DEBUG] createNewConversation - Error response:', d);
     }
   } catch (e) {
-    console.error('[createNewConversation]', e);
+    console.error('[createNewConversation] Error:', e);
   }
   return null;
 }
@@ -976,10 +983,35 @@ async function loadHashiramaStatus() {
 
     const data = await r.json();
     hashiramaStatus = data.status;
+    updateHashiramaConnectionStatus(!data.status.error);
     renderRightPanel();
   } catch (e) {
     console.error('Failed to load Hashirama status:', e);
+    updateHashiramaConnectionStatus(false);
   }
+}
+
+function updateHashiramaConnectionStatus(isConnected: boolean) {
+  if (!hashiramaConnectionDot) return;
+
+  if (isConnected) {
+    hashiramaConnectionDot.style.background = '#27ae60'; // Vert
+    hashiramaConnectionDot.style.boxShadow = '0 0 8px rgba(39, 174, 96, 0.8)';
+    hashiramaConnectionDot.title = 'Hashirama connecté';
+  } else {
+    hashiramaConnectionDot.style.background = '#e74c3c'; // Rouge
+    hashiramaConnectionDot.style.boxShadow = '0 0 8px rgba(231, 76, 60, 0.8)';
+    hashiramaConnectionDot.title = 'Hashirama déconnecté';
+  }
+}
+
+function checkHashiramaConnection() {
+  if (!token) return;
+
+  fetch('/api/hashirama/status', { headers: { Authorization: `Bearer ${token}` } })
+    .then(r => r.ok ? r.json() : Promise.reject())
+    .then(data => updateHashiramaConnectionStatus(!data.status.error))
+    .catch(() => updateHashiramaConnectionStatus(false));
 }
 
 async function loadHistory() {
@@ -1060,6 +1092,10 @@ async function login(identifier, password) {
 
   await loadHistory();
   loadHashiramaStatus(); // Load real API consumption
+  checkHashiramaConnection(); // Check Hashirama connection
+
+  // Check connection every 30 seconds
+  setInterval(checkHashiramaConnection, 30000);
 }
 
 async function sendMessage() {
@@ -1072,16 +1108,24 @@ async function sendMessage() {
   }
 
   // Create new conversation if none is active
+  console.log('[DEBUG] activeConversationId:', activeConversationId);
   if (!activeConversationId) {
+    console.log('[DEBUG] Creating new conversation...');
     const newConv = await createNewConversation();
-    if (!newConv) return;
+    console.log('[DEBUG] New conversation created:', newConv);
+    if (!newConv) {
+      console.log('[DEBUG] Failed to create conversation!');
+      return;
+    }
     activeConversationId = newConv.id;
   }
 
+  console.log('[DEBUG] Adding user message to UI...');
   addMessage('user', text);
   chatInput.value = '';
   chatInput.style.height = 'auto';
 
+  console.log('[DEBUG] Saving user message to conversation...');
   // Add user message to conversation
   await fetch(`/api/conversations/${activeConversationId}/messages`, {
     method: 'POST',
@@ -1111,7 +1155,9 @@ async function sendMessage() {
       connectors: activeConnectors,
     };
 
+    console.log('[DEBUG] Sending to /api/chat with payload:', payload);
     const r = await fetch('/api/chat', { method: 'POST', headers: authHeaders(), body: JSON.stringify(payload) });
+    console.log('[DEBUG] Received response:', r.status, r.statusText);
     if (r.status === 401) { handleSessionExpired(); return; }
     const d = await r.json().catch(() => ({}));
     typing = false;
@@ -1149,11 +1195,13 @@ async function sendMessage() {
     renderRightPanel();
     renderStatusWidget();
   } catch (e) {
+    console.error('[DEBUG] Error in sendMessage:', e);
     typing = false;
     sendBtn.disabled = false;
     if (e.message !== 'unauthorized') addMessage('ai', 'Erreur de communication avec le bridge. Réessayez.');
     renderMessages();
   }
+  console.log('[DEBUG] sendMessage completed');
 }
 
 // ── ADMIN ───────────────────────────────────────────────────
