@@ -44,11 +44,8 @@ const artifactName = $('#artifactName');
 const artifactCopy = $('#artifactCopy');
 const artifactDownload = $('#artifactDownload');
 const artifactClose = $('#artifactClose');
-const adminDashboard = $('#adminDashboard');
-const adminDashboardClose = $('#adminDashboardClose');
-const adminTabUsers = $('#adminTabUsers');
-const adminTabAudit = $('#adminTabAudit');
-const adminTabBackups = $('#adminTabBackups');
+const accAdminSection = $('#accAdminSection');
+const accAdminBody = $('#accAdminBody');
 
 // ── STATE ───────────────────────────────────────────────────
 let viewport         = 'desktop';
@@ -1330,6 +1327,13 @@ async function login(identifier, password) {
     setTimeout(() => alert(`Profil "${profile}" créé avec succès.`), 300);
   }
 
+  // Show admin section if user is admin
+  if (isAdmin) {
+    showAdminSection();
+    await loadAdminData();
+    renderAdminPanel();
+  }
+
   await loadHistory();
   loadHashiramaStatus(); // Load real API consumption
   checkHashiramaConnection(); // Check Hashirama connection
@@ -1453,21 +1457,49 @@ async function loadAdminData() {
   adminUsers = d.items || [];
 }
 
-function showAdminDashboard() {
-  adminDashboard.classList.remove('hidden');
+function renderAdminPanel() {
+  if (!accAdminBody) return;
+
+  accAdminBody.innerHTML = `
+    <div class="admin-tabs" style="display:flex;gap:4px;margin-bottom:12px;border-bottom:1px solid var(--border-dim);padding-bottom:8px;">
+      <button class="admin-tab-btn active" data-tab="users" style="flex:1;padding:6px 10px;background:rgba(170,120,25,0.1);border:1px solid var(--gold);color:var(--gold);font-family:var(--font-mono);font-size:9px;cursor:pointer;text-transform:uppercase;">👥 Utilisateurs</button>
+      <button class="admin-tab-btn" data-tab="audit" style="flex:1;padding:6px 10px;background:transparent;border:1px solid var(--border-dim);color:var(--text-dim);font-family:var(--font-mono);font-size:9px;cursor:pointer;text-transform:uppercase;">📋 Audit</button>
+      <button class="admin-tab-btn" data-tab="backups" style="flex:1;padding:6px 10px;background:transparent;border:1px solid var(--border-dim);color:var(--text-dim);font-family:var(--font-mono);font-size:9px;cursor:pointer;text-transform:uppercase;">💾 Backups</button>
+    </div>
+    <div id="adminTabContent"></div>
+  `;
+
+  // Setup tab switching
+  accAdminBody.querySelectorAll('.admin-tab-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      accAdminBody.querySelectorAll('.admin-tab-btn').forEach(b => {
+        b.style.background = 'transparent';
+        b.style.borderColor = 'var(--border-dim)';
+        b.style.color = 'var(--text-dim)';
+      });
+      btn.style.background = 'rgba(170,120,25,0.1)';
+      btn.style.borderColor = 'var(--gold)';
+      btn.style.color = 'var(--gold)';
+
+      const tab = btn.dataset.tab;
+      if (tab === 'users') renderAdminUsers();
+      else if (tab === 'audit') loadAdminAuditLog();
+      else if (tab === 'backups') loadAdminBackups();
+    });
+  });
+
   renderAdminUsers();
 }
 
-function hideAdminDashboard() {
-  adminDashboard.classList.add('hidden');
-}
-
 function renderAdminUsers() {
-  adminTabUsers.innerHTML = `
-    <div style="margin-bottom:16px;">
-      <button class="admin-action-btn" onclick="adminCreateUser()" style="background:rgba(170,120,25,0.15);border-color:var(--gold);color:var(--gold);">➕ Créer un utilisateur</button>
+  const adminTabContent = $('#adminTabContent');
+  if (!adminTabContent) return;
+
+  adminTabContent.innerHTML = `
+    <div style="margin-bottom:12px;">
+      <button class="admin-action-btn" onclick="adminCreateUser()" style="background:rgba(170,120,25,0.15);border-color:var(--gold);color:var(--gold);padding:6px 12px;font-size:9px;">➕ Créer un utilisateur</button>
     </div>
-    <div class="admin-user-grid">
+    <div style="display:grid;gap:10px;">
       ${adminUsers.map(user => `
         <div class="admin-user-card" data-user="${user.name}">
           <div class="admin-user-info">
@@ -1938,15 +1970,9 @@ loginModal.addEventListener('click', (e) => {
   if (e.target === loginModal && token) loginModal.classList.add('hidden');
 });
 
-navAvatar.addEventListener('click', async () => {
-  if (isAdmin && token) {
-    // Si l'utilisateur est admin et connecté, ouvrir le dashboard admin
-    await loadAdminData();
-    showAdminDashboard();
-  } else {
-    // Sinon, ouvrir la modal de login
-    loginModal.classList.remove('hidden');
-  }
+navAvatar.addEventListener('click', () => {
+  // Toujours ouvrir la modal de login (pour se déconnecter ou changer de profil)
+  loginModal.classList.remove('hidden');
 });
 
 // Options modal (mobile/tablet)
@@ -2091,32 +2117,12 @@ artifactClose?.addEventListener('click', hideArtifact);
 artifactCopy?.addEventListener('click', copyArtifactCode);
 artifactDownload?.addEventListener('click', downloadArtifact);
 
-// Admin dashboard event listeners
-adminDashboardClose?.addEventListener('click', hideAdminDashboard);
-
-// Admin tabs switching
-$$('.admin-tab').forEach(tab => {
-  tab.addEventListener('click', () => {
-    const targetTab = tab.dataset.tab;
-
-    // Update tab active state
-    $$('.admin-tab').forEach(t => t.classList.remove('active'));
-    tab.classList.add('active');
-
-    // Update content visibility
-    $$('.admin-tab-content').forEach(c => c.classList.remove('active'));
-
-    if (targetTab === 'users') {
-      adminTabUsers.classList.add('active');
-    } else if (targetTab === 'audit') {
-      adminTabAudit.classList.add('active');
-      loadAdminAuditLog();
-    } else if (targetTab === 'backups') {
-      adminTabBackups.classList.add('active');
-      loadAdminBackups();
-    }
-  });
-});
+// Admin section visibility on login
+function showAdminSection() {
+  if (isAdmin && accAdminSection) {
+    accAdminSection.style.display = 'block';
+  }
+}
 
 async function loadAdminAuditLog() {
   try {
@@ -2125,7 +2131,7 @@ async function loadAdminAuditLog() {
     });
     const d = await r.json();
     if (r.ok) {
-      adminTabAudit.innerHTML = `
+      $("#adminTabContent").innerHTML = `
         <div style="font-family:var(--font-mono);font-size:9px;line-height:1.6;">
           ${(d.logs || []).slice(0, 100).map(log =>
             `<div style="padding:4px 0;border-bottom:1px solid var(--border-dim);">
@@ -2139,7 +2145,7 @@ async function loadAdminAuditLog() {
       `;
     }
   } catch (e) {
-    adminTabAudit.innerHTML = '<div style="color:var(--error);">Erreur lors du chargement des logs</div>';
+    $("#adminTabContent").innerHTML = '<div style="color:var(--error);">Erreur lors du chargement des logs</div>';
   }
 }
 
@@ -2150,7 +2156,7 @@ async function loadAdminBackups() {
     });
     const d = await r.json();
     if (r.ok) {
-      adminTabBackups.innerHTML = `
+      $("#adminTabContent").innerHTML = `
         <div style="margin-bottom:16px;">
           <button class="admin-action-btn" onclick="createAdminBackup()">💾 Créer un backup</button>
         </div>
@@ -2170,7 +2176,7 @@ async function loadAdminBackups() {
       `;
     }
   } catch (e) {
-    adminTabBackups.innerHTML = '<div style="color:var(--error);">Erreur lors du chargement des backups</div>';
+    $("#adminTabContent").innerHTML = '<div style="color:var(--error);">Erreur lors du chargement des backups</div>';
   }
 }
 

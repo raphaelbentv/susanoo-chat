@@ -179,6 +179,15 @@
             <div class="acc-body" id="accPromptBody"></div>
           </div>
 
+          <!-- Admin Panel -->
+          <div class="acc-section" id="accAdminSection" style="display:none;">
+            <div class="acc-header">
+              <span>👑 Administration</span>
+              <span class="acc-arrow open">▼</span>
+            </div>
+            <div class="acc-body" id="accAdminBody"></div>
+          </div>
+
           <!-- Context tags -->
           <div class="acc-section">
             <div class="acc-header">
@@ -255,28 +264,6 @@
       <div id="adminPanel" class="admin-panel" style="display:none">
         <strong class="admin-title">Profils</strong>
         <pre id="adminProfiles" class="admin-profiles"></pre>
-      </div>
-    </div>
-  </div>
-
-  <!-- ═══ ADMIN DASHBOARD MODAL ═══ -->
-  <div id="adminDashboard" class="login-modal hidden">
-    <div class="admin-dashboard-card">
-      <div class="admin-dashboard-header">
-        <div class="admin-dashboard-title">⚡ Panneau Administrateur</div>
-        <button class="admin-close-btn" id="adminDashboardClose">✕</button>
-      </div>
-      <div class="admin-dashboard-body">
-        <div class="admin-tabs">
-          <button class="admin-tab active" data-tab="users">👥 Utilisateurs</button>
-          <button class="admin-tab" data-tab="audit">📋 Audit</button>
-          <button class="admin-tab" data-tab="backups">💾 Backups</button>
-        </div>
-        <div class="admin-content">
-          <div id="adminTabUsers" class="admin-tab-content active"></div>
-          <div id="adminTabAudit" class="admin-tab-content hidden"></div>
-          <div id="adminTabBackups" class="admin-tab-content hidden"></div>
-        </div>
       </div>
     </div>
   </div>
