@@ -130,6 +130,24 @@
 
       </main>
 
+      <!-- ─── ARTIFACT PANEL ─── -->
+      <aside class="artifact-panel hidden" id="artifactPanel">
+        <div class="artifact-header">
+          <div class="artifact-title">
+            <span class="artifact-icon">⚡</span>
+            <span class="artifact-name" id="artifactName">Artefact</span>
+          </div>
+          <div class="artifact-actions">
+            <button class="artifact-btn" id="artifactCopy" title="Copier le code">📋</button>
+            <button class="artifact-btn" id="artifactDownload" title="Télécharger">⬇</button>
+            <button class="artifact-btn" id="artifactClose" title="Fermer">✕</button>
+          </div>
+        </div>
+        <div class="artifact-body">
+          <iframe id="artifactFrame" sandbox="allow-scripts allow-same-origin" frameborder="0"></iframe>
+        </div>
+      </aside>
+
       <!-- ─── RIGHT PANEL ─── -->
       <aside class="right-panel" id="rightPanel">
         <div class="right-panel-scroll scroll">

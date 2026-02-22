@@ -37,6 +37,12 @@ const optionsModalContent = $('#optionsModalContent');
 const hashiramaConnectionDot = $('#hashiramaConnectionDot');
 const claudeToggle = $('#claudeToggle');
 const claudeToggleInput = $('#claudeToggleInput') as HTMLInputElement;
+const artifactPanel = $('#artifactPanel');
+const artifactFrame = $('#artifactFrame') as HTMLIFrameElement;
+const artifactName = $('#artifactName');
+const artifactCopy = $('#artifactCopy');
+const artifactDownload = $('#artifactDownload');
+const artifactClose = $('#artifactClose');
 
 // ── STATE ───────────────────────────────────────────────────
 let viewport         = 'desktop';
@@ -72,6 +78,7 @@ let notifications    = [];
 let notificationId   = 0;
 let hashiramaStatus  = null;
 let claudeEnabled = false;
+let currentArtifact = null; // { type: 'html'|'svg'|'react', code: string, title: string }
 
 const ALL_TAGS = ["Venio","Creatio","Arrow","Kuro","MBWAY","EMA","Absys","Bangkok","Instagram","VPS"];
 
@@ -517,12 +524,7 @@ function renderRightPanel() {
             <div class="model-card-desc" style="font-size:10px;">${m.desc}</div>
           </div>
         `).join('')}
-      </div>
-      <div class="gold-divider"></div>
-      <div class="stat-row"><span class="stat-key">Température</span><span class="stat-val">${(temperature/100).toFixed(2)}</span></div>
-      <input type="range" min="0" max="100" value="${temperature}" id="tempSlider">
-      <div class="stat-row" style="margin-top:4px"><span class="stat-key">Max tokens</span><span class="stat-val">${Math.round(maxTokens*81.92).toLocaleString('fr-FR')}</span></div>
-      <input type="range" min="10" max="100" value="${maxTokens}" id="maxTokSlider">`;
+      </div>`;
 
     accModel.querySelectorAll('.model-card').forEach(el => {
       el.addEventListener('click', () => {
@@ -533,8 +535,6 @@ function renderRightPanel() {
         renderStatusWidget();
       });
     });
-    $('#tempSlider')?.addEventListener('input', e => { temperature = +e.target.value; renderRightPanel(); });
-    $('#maxTokSlider')?.addEventListener('input', e => { maxTokens = +e.target.value; renderRightPanel(); });
   }
 
   // Context window
@@ -649,6 +649,12 @@ function renderRightPanel() {
           <div style="font-size:18px;">${deepSearchEnabled ? '✓' : '○'}</div>
         </div>
       </div>
+      <div class="gold-divider" style="margin:12px 0;"></div>
+      <div class="stat-row"><span class="stat-key">Température</span><span class="stat-val">${(temperature/100).toFixed(2)}</span></div>
+      <input type="range" min="0" max="100" value="${temperature}" id="tempSlider" style="width:100%;margin-bottom:8px;">
+      <div class="stat-row"><span class="stat-key">Max tokens</span><span class="stat-val">${Math.round(maxTokens*81.92).toLocaleString('fr-FR')}</span></div>
+      <input type="range" min="10" max="100" value="${maxTokens}" id="maxTokSlider" style="width:100%;margin-bottom:8px;">
+      <div class="gold-divider" style="margin:12px 0;"></div>
       ${statRowHtml('Streaming', 'Activé', 'success')}
       ${statRowHtml('Top-P', '0.95')}
       ${statRowHtml('Safety', 'Standard')}`;
@@ -656,6 +662,16 @@ function renderRightPanel() {
     $('#deepSearchToggle')?.addEventListener('click', () => {
       deepSearchEnabled = !deepSearchEnabled;
       localStorage.setItem('hashirama_deep_search', String(deepSearchEnabled));
+      renderRightPanel();
+    });
+
+    $('#tempSlider')?.addEventListener('input', e => {
+      temperature = +e.target.value;
+      renderRightPanel();
+    });
+
+    $('#maxTokSlider')?.addEventListener('input', e => {
+      maxTokens = +e.target.value;
       renderRightPanel();
     });
   }
@@ -748,6 +764,168 @@ async function applyTheme(themeId) {
   renderRightPanel();
 }
 
+// ── MARKDOWN PARSER ─────────────────────────────────────────
+function parseMarkdown(text: string): string {
+  // Escape HTML first to prevent XSS
+  let html = text
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;');
+
+  // Code blocks (must be before inline code)
+  html = html.replace(/```(\w+)?\n([\s\S]*?)```/g, (_, lang, code) => {
+    return `<pre><code class="language-${lang || 'text'}">${code.trim()}</code></pre>`;
+  });
+
+  // Inline code
+  html = html.replace(/`([^`]+)`/g, '<code>$1</code>');
+
+  // Headers
+  html = html.replace(/^### (.+)$/gm, '<h3>$1</h3>');
+  html = html.replace(/^## (.+)$/gm, '<h2>$1</h2>');
+  html = html.replace(/^# (.+)$/gm, '<h1>$1</h1>');
+
+  // Bold
+  html = html.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
+  html = html.replace(/__(.+?)__/g, '<strong>$1</strong>');
+
+  // Italic
+  html = html.replace(/\*(.+?)\*/g, '<em>$1</em>');
+  html = html.replace(/_(.+?)_/g, '<em>$1</em>');
+
+  // Links
+  html = html.replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" target="_blank" rel="noopener">$1</a>');
+
+  // Unordered lists
+  html = html.replace(/^[*-] (.+)$/gm, '<li>$1</li>');
+  html = html.replace(/(<li>.*<\/li>)/s, '<ul>$1</ul>');
+
+  // Line breaks (double newline = paragraph)
+  html = html.replace(/\n\n/g, '</p><p>');
+  html = '<p>' + html + '</p>';
+
+  // Clean up empty paragraphs
+  html = html.replace(/<p><\/p>/g, '');
+  html = html.replace(/<p>\s*<\/p>/g, '');
+
+  return html;
+}
+
+// ── ARTIFACT DETECTION ──────────────────────────────────────
+function detectArtifact(text: string): { type: string; code: string; title: string; cleanText: string } | null {
+  // Detect HTML artifacts
+  const htmlMatch = text.match(/```html\n([\s\S]*?)```/);
+  if (htmlMatch) {
+    const code = htmlMatch[1].trim();
+    // Only treat as artifact if it contains meaningful HTML structure
+    if (code.includes('<html') || code.includes('<!DOCTYPE') || (code.includes('<div') && code.includes('<style'))) {
+      return {
+        type: 'html',
+        code: code,
+        title: 'HTML Artifact',
+        cleanText: text.replace(htmlMatch[0], '[Voir l\'artefact →]')
+      };
+    }
+  }
+
+  // Detect SVG artifacts
+  const svgMatch = text.match(/```svg\n([\s\S]*?)```/);
+  if (svgMatch) {
+    const code = svgMatch[1].trim();
+    if (code.includes('<svg')) {
+      return {
+        type: 'svg',
+        code: code,
+        title: 'SVG Artifact',
+        cleanText: text.replace(svgMatch[0], '[Voir l\'artefact →]')
+      };
+    }
+  }
+
+  // Detect standalone HTML/SVG in code blocks
+  const codeBlockMatch = text.match(/```\n([\s\S]*?)```/);
+  if (codeBlockMatch) {
+    const code = codeBlockMatch[1].trim();
+    if (code.startsWith('<!DOCTYPE') || code.startsWith('<html') || code.startsWith('<svg')) {
+      return {
+        type: code.startsWith('<svg') ? 'svg' : 'html',
+        code: code,
+        title: code.startsWith('<svg') ? 'SVG Artifact' : 'HTML Artifact',
+        cleanText: text.replace(codeBlockMatch[0], '[Voir l\'artefact →]')
+      };
+    }
+  }
+
+  return null;
+}
+
+function showArtifact(artifact: { type: string; code: string; title: string }) {
+  currentArtifact = artifact;
+  artifactName.textContent = artifact.title;
+
+  // Prepare the content based on type
+  let content = artifact.code;
+
+  if (artifact.type === 'svg') {
+    // Wrap SVG in minimal HTML
+    content = `<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <style>
+    body { margin: 0; padding: 20px; display: flex; justify-content: center; align-items: center; min-height: 100vh; background: #f5f5f5; }
+    svg { max-width: 100%; height: auto; }
+  </style>
+</head>
+<body>${artifact.code}</body>
+</html>`;
+  } else if (artifact.type === 'html' && !artifact.code.includes('<!DOCTYPE') && !artifact.code.includes('<html')) {
+    // Wrap partial HTML
+    content = `<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+</head>
+<body>${artifact.code}</body>
+</html>`;
+  }
+
+  // Render in iframe
+  const doc = artifactFrame.contentDocument || artifactFrame.contentWindow.document;
+  doc.open();
+  doc.write(content);
+  doc.close();
+
+  // Show panel
+  artifactPanel.classList.remove('hidden');
+}
+
+function hideArtifact() {
+  artifactPanel.classList.add('hidden');
+  currentArtifact = null;
+}
+
+function copyArtifactCode() {
+  if (!currentArtifact) return;
+  navigator.clipboard.writeText(currentArtifact.code)
+    .then(() => alert('Code copié dans le presse-papier'))
+    .catch(() => alert('Erreur lors de la copie'));
+}
+
+function downloadArtifact() {
+  if (!currentArtifact) return;
+
+  const extension = currentArtifact.type === 'svg' ? 'svg' : 'html';
+  const blob = new Blob([currentArtifact.code], { type: 'text/html' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `artifact-${Date.now()}.${extension}`;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
 // ── MESSAGES ────────────────────────────────────────────────
 function renderMessages() {
   const marker = chatMessages.querySelector('.session-marker');
@@ -768,7 +946,35 @@ function createMessageEl(msg) {
       <div class="msg-bubble"></div>
       <div class="msg-meta">${msg.time || ''}${msg.meta ? ' · ' + msg.meta : ''}</div>
     </div>`;
-  div.querySelector('.msg-bubble').textContent = msg.text;
+
+  // Detect artifacts in AI messages
+  let artifact = null;
+  let textToRender = msg.text;
+
+  if (msg.role === 'ai') {
+    artifact = detectArtifact(msg.text);
+    if (artifact) {
+      textToRender = artifact.cleanText;
+    }
+  }
+
+  // Render markdown for AI messages, plain text for user messages
+  const bubble = div.querySelector('.msg-bubble');
+  if (msg.role === 'ai') {
+    bubble.innerHTML = parseMarkdown(textToRender);
+
+    // Add artifact button if detected
+    if (artifact) {
+      const artifactBtn = document.createElement('button');
+      artifactBtn.className = 'artifact-preview-btn';
+      artifactBtn.innerHTML = '⚡ Voir l\'artefact';
+      artifactBtn.onclick = () => showArtifact(artifact);
+      bubble.appendChild(artifactBtn);
+    }
+  } else {
+    bubble.textContent = msg.text;
+  }
+
   return div;
 }
 
@@ -1088,8 +1294,18 @@ async function login(identifier, password) {
   updateSessionDisplay();
 
   // Show Claude toggle for regular users
+  console.log('[DEBUG] Login successful - showing Claude toggle');
+  console.log('[DEBUG] claudeToggle element:', claudeToggle);
   if (claudeToggle) {
     claudeToggle.style.display = 'flex';
+    console.log('[DEBUG] Claude toggle display set to flex');
+  } else {
+    console.error('[DEBUG] claudeToggle element not found!');
+  }
+
+  // Also show options button
+  if (optionsToggle) {
+    optionsToggle.style.display = 'flex';
   }
 
   if (d.pinExpired) {
@@ -1630,6 +1846,11 @@ claudeToggleInput?.addEventListener('change', async () => {
     console.log('[Claude Toggle] Claude disabled');
   }
 });
+
+// Artifact panel event listeners
+artifactClose?.addEventListener('click', hideArtifact);
+artifactCopy?.addEventListener('click', copyArtifactCode);
+artifactDownload?.addEventListener('click', downloadArtifact);
 
 $$('.vp-btn').forEach(btn => {
   btn.addEventListener('click', () => setViewport(btn.dataset.vp));
