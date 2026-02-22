@@ -1,0 +1,99 @@
+/* ══════════════════════════════════════════════════════════
+   THEME: Brutalist Oracle (T6)
+   Palette: B&W (#fff), terminal brut, monolithe
+   ══════════════════════════════════════════════════════════ */
+
+[data-theme="brutal"] {
+  /* ── Colors ─────────────────────────────────────────── */
+  --gold: #fff;
+  --gold-dim: rgba(255,255,255,0.45);
+  --gold-faint: rgba(255,255,255,0.08);
+  --gold-glow: rgba(255,255,255,0.12);
+  --bg: #090909;
+  --surface: rgba(12,12,12,0.90);
+  --surface2: rgba(16,16,16,0.92);
+  --border: rgba(255,255,255,0.15);
+  --border-dim: rgba(255,255,255,0.06);
+  --text: rgba(255,255,255,0.95);
+  --text-dim: rgba(255,255,255,0.72);
+  --text-faint: rgba(255,255,255,0.45);
+  --danger: #ff0000;
+  --success: #00ff00;
+
+  /* ── Typography ─────────────────────────────────────── */
+  --font-display: 'Space Mono', monospace;
+  --font-body: 'Space Mono', monospace;
+  --font-mono: 'Space Mono', monospace;
+}
+
+/* ── Background Gradients ──────────────────────────────── */
+[data-theme="brutal"] .bg-layer-1 {
+  background:
+    repeating-linear-gradient(0deg, transparent, transparent 20px, rgba(255,255,255,0.015) 21px),
+    repeating-linear-gradient(90deg, transparent, transparent 20px, rgba(255,255,255,0.015) 21px);
+}
+
+[data-theme="brutal"] .bg-layer-2 {
+  background: radial-gradient(ellipse 70% 65% at 50% 50%, transparent 40%, rgba(0,0,0,0.85) 100%);
+}
+
+/* ── Statue (Monolithe noir, œil blanc) ────────────────── */
+[data-theme="brutal"] .statue-base {
+  background: linear-gradient(180deg, #0f0f0f, #000000);
+  box-shadow: 0 0 0 2px rgba(255,255,255,0.15);
+}
+
+[data-theme="brutal"] .statue-body {
+  background: linear-gradient(168deg, #181818, #0a0a0a, #000000);
+  box-shadow: 0 0 0 2px rgba(255,255,255,0.12);
+}
+
+[data-theme="brutal"] .statue-neck {
+  background: #0d0d0d;
+  box-shadow: 0 0 0 1px rgba(255,255,255,0.10);
+}
+
+[data-theme="brutal"] .statue-head {
+  background: linear-gradient(148deg, #1a1a1a, #080808);
+  box-shadow: 0 0 0 2px rgba(255,255,255,0.15);
+}
+
+[data-theme="brutal"] .statue-crown {
+  background: linear-gradient(180deg, #1f1f1f, #0b0b0b);
+  box-shadow: 0 0 0 2px rgba(255,255,255,0.18);
+}
+
+[data-theme="brutal"] .statue-crown-glow {
+  background: radial-gradient(ellipse 50% 100% at 50% 0%, rgba(255,255,255,0.08), transparent 70%);
+}
+
+[data-theme="brutal"] .statue-eye {
+  background: #fff;
+  box-shadow: 0 0 8px 3px rgba(255,255,255,0.85), 0 0 16px 5px rgba(255,255,255,0.25);
+}
+
+[data-theme="brutal"] .statue-floor-glow {
+  background: radial-gradient(ellipse 40% 100% at 50% 100%, rgba(255,255,255,0.04), transparent 70%);
+}
+
+/* ── Brutalist-specific overrides ──────────────────────── */
+[data-theme="brutal"] .msg-bubble,
+[data-theme="brutal"] .input-box,
+[data-theme="brutal"] .login-card,
+[data-theme="brutal"] .model-card {
+  box-shadow: 7px 7px 0 rgba(255,255,255,0.1);
+}
+
+[data-theme="brutal"] .navbar-btn,
+[data-theme="brutal"] .attach-btn,
+[data-theme="brutal"] .send-btn {
+  border-width: 2px;
+}
+
+[data-theme="brutal"] ::-webkit-scrollbar-thumb {
+  background: rgba(255,255,255,0.3);
+}
+
+[data-theme="brutal"] .scroll {
+  scrollbar-color: rgba(255,255,255,0.3) transparent;
+}

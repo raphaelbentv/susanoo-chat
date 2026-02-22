@@ -1,0 +1,99 @@
+/* ══════════════════════════════════════════════════════════
+   THEME: White Ghost (T4)
+   Palette: Light (#eeecea), minimaliste pierre blanche
+   ══════════════════════════════════════════════════════════ */
+
+[data-theme="ghost"] {
+  /* ── Colors ─────────────────────────────────────────── */
+  --gold: #1a1a1a;
+  --gold-dim: rgba(26,26,26,0.42);
+  --gold-faint: rgba(26,26,26,0.08);
+  --gold-glow: rgba(26,26,26,0.12);
+  --bg: #eeecea;
+  --surface: rgba(250,248,246,0.92);
+  --surface2: rgba(255,254,252,0.88);
+  --border: rgba(26,26,26,0.12);
+  --border-dim: rgba(26,26,26,0.05);
+  --text: rgba(10,10,10,0.88);
+  --text-dim: rgba(26,26,26,0.62);
+  --text-faint: rgba(26,26,26,0.38);
+  --danger: #b33939;
+  --success: #2d6a4f;
+
+  /* ── Typography ─────────────────────────────────────── */
+  --font-display: 'Cinzel', serif;
+  --font-body: 'Cormorant Garamond', serif;
+  --font-mono: 'Space Mono', monospace;
+}
+
+/* ── Background Gradients ──────────────────────────────── */
+[data-theme="ghost"] .bg-layer-1 {
+  background:
+    radial-gradient(ellipse 60% 55% at 50% 95%, rgba(200,195,190,0.15), transparent 60%),
+    radial-gradient(ellipse 35% 30% at 50% 70%, rgba(180,175,170,0.10), transparent 50%),
+    repeating-linear-gradient(45deg, transparent, transparent 35px, rgba(150,145,140,0.03) 36px);
+}
+
+[data-theme="ghost"] .bg-layer-2 {
+  background: radial-gradient(ellipse 80% 75% at 50% 50%, transparent 30%, rgba(235,230,225,0.75) 100%);
+}
+
+/* ── Statue (Statue blanche, brume) ────────────────────── */
+[data-theme="ghost"] .statue-base {
+  background: linear-gradient(180deg, #f8f6f4, #e5e3e0);
+  box-shadow: 0 5px 25px rgba(0,0,0,0.08);
+}
+
+[data-theme="ghost"] .statue-body {
+  background: linear-gradient(168deg, #ffffff, #f2f0ee, #e8e6e4);
+  box-shadow: 0 8px 30px rgba(0,0,0,0.06);
+}
+
+[data-theme="ghost"] .statue-neck {
+  background: #f5f3f1;
+  box-shadow: 0 3px 15px rgba(0,0,0,0.05);
+}
+
+[data-theme="ghost"] .statue-head {
+  background: linear-gradient(148deg, #fefefe, #f4f2f0);
+  box-shadow: 0 6px 22px rgba(0,0,0,0.07);
+}
+
+[data-theme="ghost"] .statue-crown {
+  background: linear-gradient(180deg, #f9f7f5, #eeece8);
+  box-shadow: 0 4px 18px rgba(0,0,0,0.06);
+}
+
+[data-theme="ghost"] .statue-crown-glow {
+  background: radial-gradient(ellipse 50% 100% at 50% 0%, rgba(255,255,255,0.40), transparent 70%);
+}
+
+[data-theme="ghost"] .statue-eye {
+  background: #1a1a1a;
+  box-shadow: 0 0 6px 2px rgba(26,26,26,0.35), 0 0 12px 4px rgba(26,26,26,0.12);
+}
+
+[data-theme="ghost"] .statue-floor-glow {
+  background: radial-gradient(ellipse 45% 100% at 50% 100%, rgba(200,195,190,0.12), transparent 65%);
+}
+
+/* ── Special overrides for light theme ─────────────────── */
+[data-theme="ghost"] .msg.ai .msg-bubble {
+  background: rgba(26,26,26,0.04);
+  border-color: rgba(26,26,26,0.12);
+  color: rgba(10,10,10,0.85);
+}
+
+[data-theme="ghost"] .msg.user .msg-bubble {
+  background: rgba(26,26,26,0.08);
+  border-color: rgba(26,26,26,0.18);
+  color: rgba(10,10,10,0.82);
+}
+
+[data-theme="ghost"] .input-box textarea {
+  color: rgba(10,10,10,0.82);
+}
+
+[data-theme="ghost"] .login-input {
+  color: rgba(10,10,10,0.80);
+}

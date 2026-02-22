@@ -1,0 +1,78 @@
+/* ══════════════════════════════════════════════════════════
+   THEME: Storm Deity (T5)
+   Palette: Indigo (#8840ff), orage mystique, ailé
+   ══════════════════════════════════════════════════════════ */
+
+[data-theme="storm"] {
+  /* ── Colors ─────────────────────────────────────────── */
+  --gold: #8840ff;
+  --gold-dim: rgba(136,64,255,0.38);
+  --gold-faint: rgba(136,64,255,0.10);
+  --gold-glow: rgba(136,64,255,0.20);
+  --bg: #040310;
+  --surface: rgba(6,4,14,0.94);
+  --surface2: rgba(9,6,18,0.96);
+  --border: rgba(136,64,255,0.22);
+  --border-dim: rgba(136,64,255,0.09);
+  --text: rgba(220,200,255,0.90);
+  --text-dim: rgba(180,160,255,0.68);
+  --text-faint: rgba(136,100,255,0.42);
+  --danger: #e63946;
+  --success: #06ffa5;
+
+  /* ── Typography ─────────────────────────────────────── */
+  --font-display: 'Cinzel', serif;
+  --font-body: 'Cormorant Garamond', serif;
+  --font-mono: 'Space Mono', monospace;
+}
+
+/* ── Background Gradients ──────────────────────────────── */
+[data-theme="storm"] .bg-layer-1 {
+  background:
+    radial-gradient(ellipse 65% 55% at 50% 100%, rgba(136,64,255,0.10), transparent 62%),
+    radial-gradient(ellipse 35% 30% at 50% 70%, rgba(80,40,150,0.08), transparent 50%),
+    repeating-linear-gradient(60deg, transparent, transparent 28px, rgba(136,64,255,0.008) 29px);
+}
+
+[data-theme="storm"] .bg-layer-2 {
+  background: radial-gradient(ellipse 75% 70% at 50% 50%, transparent 32%, rgba(3,2,10,0.88) 100%);
+}
+
+/* ── Statue (Ailé, cornes, lightning) ──────────────────── */
+[data-theme="storm"] .statue-base {
+  background: linear-gradient(180deg, #0e0820, #050210);
+  box-shadow: 0 0 25px rgba(136,64,255,0.12);
+}
+
+[data-theme="storm"] .statue-body {
+  background: linear-gradient(168deg, #150a30, #080315, #030108);
+  box-shadow: inset 0 0 35px rgba(136,64,255,0.08);
+}
+
+[data-theme="storm"] .statue-neck {
+  background: #0c0618;
+  box-shadow: 0 0 12px rgba(136,64,255,0.10);
+}
+
+[data-theme="storm"] .statue-head {
+  background: linear-gradient(148deg, #18102d, #070310);
+  box-shadow: 0 0 18px rgba(136,64,255,0.12);
+}
+
+[data-theme="storm"] .statue-crown {
+  background: linear-gradient(180deg, #1f1238, #0a0515);
+  box-shadow: 0 0 20px rgba(136,64,255,0.18);
+}
+
+[data-theme="storm"] .statue-crown-glow {
+  background: radial-gradient(ellipse 50% 100% at 50% 0%, rgba(136,64,255,0.22), transparent 68%);
+}
+
+[data-theme="storm"] .statue-eye {
+  background: #8840ff;
+  box-shadow: 0 0 9px 4px rgba(136,64,255,0.92), 0 0 20px 7px rgba(136,64,255,0.32);
+}
+
+[data-theme="storm"] .statue-floor-glow {
+  background: radial-gradient(ellipse 48% 100% at 50% 100%, rgba(136,64,255,0.08), transparent 68%);
+}

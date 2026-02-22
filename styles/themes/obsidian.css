@@ -1,0 +1,73 @@
+/* ══════════════════════════════════════════════════════════
+   THEME: Obsidian Sentinel (T1)
+   Palette: Dark Red (#bb1e00), ultra sombre, ambiance japonaise
+   ══════════════════════════════════════════════════════════ */
+
+[data-theme="obsidian"] {
+  /* ── Colors ─────────────────────────────────────────── */
+  --gold: #bb1e00;
+  --gold-dim: rgba(190,30,0,0.35);
+  --gold-faint: rgba(190,30,0,0.08);
+  --gold-glow: rgba(190,30,0,0.18);
+  --bg: #030303;
+  --surface: rgba(4,4,4,0.93);
+  --surface2: rgba(8,5,5,0.96);
+  --border: rgba(255,255,255,0.05);
+  --border-dim: rgba(255,255,255,0.02);
+  --text: rgba(255,255,255,0.82);
+  --text-dim: rgba(255,255,255,0.58);
+  --text-faint: rgba(255,255,255,0.28);
+  --danger: #ff3838;
+  --success: #00b894;
+
+  /* ── Typography ─────────────────────────────────────── */
+  --font-display: 'Cinzel', serif;
+  --font-body: 'Noto Serif JP', serif;
+  --font-mono: 'Space Mono', monospace;
+}
+
+/* ── Background Gradients ──────────────────────────────── */
+[data-theme="obsidian"] .bg-layer-1 {
+  background:
+    radial-gradient(ellipse 50% 40% at 50% 100%, rgba(190,30,0,0.06), transparent 65%),
+    radial-gradient(ellipse 30% 30% at 50% 80%, rgba(50,10,5,0.08), transparent 55%),
+    repeating-linear-gradient(0deg, transparent, transparent 40px, rgba(190,30,0,0.006) 41px);
+}
+
+[data-theme="obsidian"] .bg-layer-2 {
+  background: radial-gradient(ellipse 70% 65% at 50% 50%, transparent 35%, rgba(2,0,0,0.92) 100%);
+}
+
+/* ── Statue (Silhouette noire, yeux rouges) ────────────── */
+[data-theme="obsidian"] .statue-base {
+  background: linear-gradient(180deg, #0a0404, #020000);
+}
+
+[data-theme="obsidian"] .statue-body {
+  background: linear-gradient(168deg, #0f0505, #050202, #000000);
+}
+
+[data-theme="obsidian"] .statue-neck {
+  background: #080303;
+}
+
+[data-theme="obsidian"] .statue-head {
+  background: linear-gradient(148deg, #0d0404, #040101);
+}
+
+[data-theme="obsidian"] .statue-crown {
+  background: linear-gradient(180deg, #110505, #070202);
+}
+
+[data-theme="obsidian"] .statue-crown-glow {
+  background: radial-gradient(ellipse 50% 100% at 50% 0%, rgba(190,30,0,0.10), transparent 70%);
+}
+
+[data-theme="obsidian"] .statue-eye {
+  background: #bb1e00;
+  box-shadow: 0 0 8px 3px rgba(190,30,0,0.9), 0 0 18px 6px rgba(190,30,0,0.28);
+}
+
+[data-theme="obsidian"] .statue-floor-glow {
+  background: radial-gradient(ellipse 40% 100% at 50% 100%, rgba(190,30,0,0.04), transparent 70%);
+}
