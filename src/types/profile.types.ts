@@ -50,7 +50,9 @@ export interface AdminSession {
 
 export interface Database {
   profiles: Record<string, Profile>;
-  memory: Record<string, MemoryEntry[]>;
+  conversations: Record<string, string[]>;  // profile -> conversationIds[]
+  conversationsData: Record<string, any>;   // conversationId -> Conversation
+  memory: Record<string, MemoryEntry[]>;    // Legacy, keep for compatibility
   admin?: {
     user: string;
     salt: string;

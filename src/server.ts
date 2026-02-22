@@ -35,6 +35,15 @@ import {
   handleMemoryClear,
   handleChat,
 } from './routes/chat.js';
+import {
+  handleListConversations,
+  handleCreateConversation,
+  handleGetConversation,
+  handleUpdateConversation,
+  handleDeleteConversation,
+  handleAddMessage,
+  handleGetMessages,
+} from './routes/conversations.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -158,6 +167,47 @@ const server = http.createServer(async (req, res) => {
 
     if (req.method === 'POST' && pathname === '/api/chat') {
       return handleChat(req, res);
+    }
+
+    // ─── CONVERSATIONS ENDPOINTS ───────────────────────────
+
+    if (req.method === 'GET' && pathname === '/api/conversations') {
+      return handleListConversations(req, res);
+    }
+
+    if (req.method === 'POST' && pathname === '/api/conversations') {
+      return handleCreateConversation(req, res);
+    }
+
+    // Routes with :id parameter
+    const conversationMatch = pathname.match(/^\/api\/conversations\/([a-f0-9]+)$/);
+    if (conversationMatch) {
+      const conversationId = conversationMatch[1];
+
+      if (req.method === 'GET') {
+        return handleGetConversation(req, res, conversationId);
+      }
+
+      if (req.method === 'PUT') {
+        return handleUpdateConversation(req, res, conversationId);
+      }
+
+      if (req.method === 'DELETE') {
+        return handleDeleteConversation(req, res, conversationId);
+      }
+    }
+
+    const messagesMatch = pathname.match(/^\/api\/conversations\/([a-f0-9]+)\/messages$/);
+    if (messagesMatch) {
+      const conversationId = messagesMatch[1];
+
+      if (req.method === 'GET') {
+        return handleGetMessages(req, res, conversationId);
+      }
+
+      if (req.method === 'POST') {
+        return handleAddMessage(req, res, conversationId);
+      }
     }
 
     return send(res, 404, JSON.stringify({ error: 'not_found' }), 'application/json');
