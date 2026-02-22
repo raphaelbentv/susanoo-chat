@@ -1,5 +1,5 @@
 /* ══════════════════════════════════════════════════════════
-   SUSANOO — Interface Impériale · Script v0.2.0
+   HASHIRAMA — Interface Impériale · Script v0.2.0
    P0: Session mgmt, RBAC display, password policy, error logging
    ══════════════════════════════════════════════════════════ */
 
@@ -59,7 +59,7 @@ const CONVS = [
   { id:5, title:"Kuro — Prompt système v2", preview:"Révision des instructions…", time:"19 fév", group:"Cette semaine" },
   { id:6, title:"Script Instagram Reel", preview:"Contenu 53K — format vertical…", time:"19 fév", group:"Cette semaine" },
   { id:7, title:"Formatio — Qualiopi Q5", preview:"Critère 5 : évaluation…", time:"15 fév", group:"Plus ancien" },
-  { id:8, title:"Susanoo — Design System", preview:"Tokens CSS, Gold Emperor…", time:"12 fév", group:"Plus ancien" },
+  { id:8, title:"Hashirama — Design System", preview:"Tokens CSS, Gold Emperor…", time:"12 fév", group:"Plus ancien" },
   { id:9, title:"Bangkok — Projet immobilier", preview:"Analyse marché Sukhumvit…", time:"10 fév", group:"Plus ancien" },
 ];
 const ALL_TAGS = ["Venio","Creatio","Arrow","Kuro","MBWAY","EMA","Absys","Bangkok","Instagram","VPS"];
@@ -286,7 +286,7 @@ function renderRightPanel() {
   const accPrompt = $('#accPromptBody');
   if (accPrompt) {
     accPrompt.innerHTML = `
-      <div class="system-prompt-text">Tu es Susanoo, assistant impérial de Raphael. Tu l'assistes dans la gestion de Groupe Venio, ses cours et ses projets tech.</div>
+      <div class="system-prompt-text">Tu es Hashirama, assistant impérial de Raphael. Tu l'assistes dans la gestion de Groupe Venio, ses cours et ses projets tech.</div>
       <button class="modify-btn">Modifier</button>`;
   }
 

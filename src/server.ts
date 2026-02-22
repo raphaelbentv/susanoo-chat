@@ -181,7 +181,7 @@ const server = http.createServer(async (req, res) => {
 // ══════════════════════════════════════════════════════════
 server.listen(CONFIG.PORT, () => {
   log('info', 'server_started', { port: CONFIG.PORT, version: CONFIG.VERSION });
-  console.log(`✓ Susanoo Chat v${CONFIG.VERSION} (TypeScript)`);
+  console.log(`✓ Hashirama Chat v${CONFIG.VERSION} (TypeScript)`);
   console.log(`✓ Listening on http://localhost:${CONFIG.PORT}`);
   console.log(`✓ Data directory: ${CONFIG.DATA_DIR}`);
 });
