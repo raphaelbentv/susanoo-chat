@@ -391,7 +391,7 @@ input[type=range]::-webkit-slider-thumb {
   color: rgba(255,255,255,0.92);
 }
 .msg.user .msg-bubble {
-  font-size: 12px;
+  font-size: 14px;
   background: rgba(200,158,28,0.07);
   border-color: rgba(200,158,28,0.18);
   color: rgba(255,255,255,0.85);
@@ -563,7 +563,7 @@ input[type=range]::-webkit-slider-thumb {
 
 .input-box textarea {
   flex: 1; background: transparent; border: none; outline: none;
-  font-family: var(--font-body); font-size: 10px;
+  font-family: var(--font-body); font-size: 12px;
   color: rgba(255,215,90,0.92); resize: none;
   max-height: 100px; line-height: 1.5; scrollbar-width: none;
 }
