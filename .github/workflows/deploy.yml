@@ -28,10 +28,23 @@ jobs:
             if command -v systemctl &>/dev/null; then
               systemctl restart hashirama-chat
             else
-              pkill -f "node.*dist/server.js" || pkill -f "node.*server.js" || true
-              sleep 1
+              # Kill any process listening on port 8090
+              lsof -ti:8090 | xargs kill -9 2>/dev/null || true
+              # Also kill any remaining server.js processes in this directory
+              pkill -f "/workspace/hashirama-chat-susanoo.*server.js" || true
+              sleep 2
               cd /workspace/hashirama-chat-susanoo
               PORT=8090 nohup node dist/server.js > /var/log/susanoo.log 2>&1 &
             fi
-            sleep 2
-            curl -sf http://localhost:8090/api/health && echo "Deploy OK" || echo "Deploy FAILED"
+
+            # Wait for server to start and verify
+            echo "Waiting for server to start..."
+            sleep 3
+            if curl -sf http://localhost:8090/api/health > /dev/null; then
+              echo "✓ Deploy OK - Server is running"
+              curl -s http://localhost:8090/api/health | grep -o '"version":"[^"]*"'
+            else
+              echo "✗ Deploy FAILED - Server health check failed"
+              tail -20 /var/log/susanoo.log
+              exit 1
+            fi
