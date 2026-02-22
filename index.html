@@ -1,108 +1,216 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="fr">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Susanoo — Gilded Emperor</title>
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;700;900&family=Cormorant+Garamond:ital,wght@0,300;0,600;1,300;1,600&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="styles.css" />
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Susanoo — Interface Impériale</title>
+  <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;700;900&family=Cormorant+Garamond:ital,wght@0,300;0,600;1,300;1,600&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css">
 </head>
 <body>
 
-<!-- BACKGROUND LAYERS -->
-<div class="bg-g"></div>
-<div class="deco"></div>
+  <div id="app" class="app viewport-desktop">
 
-<!-- STATUE -->
-<div class="statue">
-  <div class="s-throne"></div>
-  <div class="s-legs"></div>
-  <div class="s-robe"></div>
-  <div class="s-chest"></div>
-  <div class="s-arm-l"></div>
-  <div class="s-arm-r"></div>
-  <div class="s-neck"></div>
-  <div class="s-head"></div>
-  <div class="s-crown"></div>
-  <div class="s-cglow"></div>
-  <div class="s-eyes">
-    <div class="eye"></div>
-    <div class="eye"></div>
-  </div>
-  <div class="s-glow"></div>
-</div>
+    <!-- BG layers -->
+    <div class="bg-layer bg-layer-1"></div>
+    <div class="bg-layer bg-layer-2"></div>
 
-<!-- VIGNETTE -->
-<div class="vignette"></div>
+    <!-- Statue ghost (desktop only) -->
+    <div class="statue-ghost" id="statueGhost">
+      <div class="statue-base"></div>
+      <div class="statue-body"></div>
+      <div class="statue-neck"></div>
+      <div class="statue-head"></div>
+      <div class="statue-crown"></div>
+      <div class="statue-crown-glow"></div>
+      <div class="statue-eyes">
+        <div class="statue-eye"></div>
+        <div class="statue-eye"></div>
+      </div>
+      <div class="statue-floor-glow"></div>
+    </div>
 
-<!-- CHAT -->
-<div class="chat" id="chatBox">
-  <div class="ornament tl"></div>
-  <div class="ornament tr"></div>
-  <div class="ornament bl"></div>
-  <div class="ornament br"></div>
+    <!-- ═══ NAVBAR ═══ -->
+    <nav class="navbar">
+      <div class="navbar-left">
+        <button class="navbar-btn sidebar-toggle" id="sidebarToggle" aria-label="Toggle sidebar">☰</button>
+        <div class="navbar-brand">SUSANOO</div>
+        <div class="navbar-sep"></div>
+        <div class="navbar-subtitle">Interface Impériale</div>
+      </div>
+      <div class="navbar-right">
+        <div class="navbar-status">
+          <div class="status-dot"></div>
+          <span class="status-label" id="statusLabel">Claude · Actif</span>
+        </div>
+        <div class="navbar-avatar" id="navAvatar" title="Profil">R</div>
+      </div>
+    </nav>
 
-  <div class="chat-header">
-    <div class="logo">SUSANOO</div>
-    <div class="sep"></div>
-    <div class="sub">Interface Impériale</div>
-  </div>
+    <!-- ═══ LAYOUT BODY ═══ -->
+    <div class="layout-body">
 
-  <div class="status-bar">
-    <div class="status-dot"></div>
-    <span class="status-txt" id="statusTxt">Connexion en attente…</span>
-    <div class="status-actions">
-      <button id="exportBtn" class="status-btn" aria-label="Exporter">Export</button>
-      <button id="clearBtn" class="status-btn" aria-label="Effacer">Clear</button>
-      <button id="adminBtn" class="status-btn" aria-label="Admin">Admin</button>
+      <!-- Sidebar overlay (mobile/tablet) -->
+      <div class="sidebar-overlay" id="sidebarOverlay"></div>
+
+      <!-- ─── SIDEBAR ─── -->
+      <aside class="sidebar" id="sidebar">
+
+        <div class="sidebar-header">
+          <span class="sidebar-label">Conversations</span>
+          <button class="sidebar-new-btn" id="newConvBtn" title="Nouvelle conversation">+</button>
+        </div>
+
+        <div class="sidebar-search">
+          <input type="text" id="convSearch" placeholder="Rechercher…" class="search-input" autocomplete="off">
+        </div>
+
+        <div class="sidebar-convs scroll" id="convList">
+          <!-- Rendered by JS -->
+        </div>
+
+        <div class="sidebar-status">
+          <div class="sidebar-status-header" id="statusToggle">
+            <span class="sidebar-label">Consommation API</span>
+            <span class="acc-arrow open">▼</span>
+          </div>
+          <div class="sidebar-status-body" id="statusBody">
+            <!-- Rendered by JS -->
+          </div>
+        </div>
+
+      </aside>
+
+      <!-- ─── MAIN CHAT ─── -->
+      <main class="chat-main">
+
+        <div class="chat-messages scroll" id="chatMessages">
+          <div class="session-marker">
+            <div class="marker-line"></div>
+            <span class="marker-text" id="sessionMarker"></span>
+            <div class="marker-line"></div>
+          </div>
+          <!-- Messages rendered by JS -->
+        </div>
+
+        <div class="chat-input-area">
+          <div class="input-box">
+            <div class="ornament tl"></div>
+            <div class="ornament tr"></div>
+            <div class="ornament bl"></div>
+            <div class="ornament br"></div>
+            <textarea id="chatInput" rows="1" placeholder="Votre commande impériale…" autocomplete="off"></textarea>
+            <div class="input-actions">
+              <button class="attach-btn" id="attachBtn" title="Ajouter" type="button">⊕</button>
+              <button class="send-btn" id="sendBtn" type="button">Envoyer</button>
+            </div>
+          </div>
+          <div class="input-meta" id="inputMeta">
+            <div class="input-meta-left">
+              <span>Modèle <em>claude-sonnet-4-6</em></span>
+              <span>Contexte <em id="ctxTokens">0 tk</em></span>
+              <span>Session <em id="sessionTime">--:--</em></span>
+            </div>
+            <div class="input-meta-right">⏎ Envoyer · ⇧⏎ Newline · ⌘K</div>
+          </div>
+        </div>
+
+      </main>
+
+      <!-- ─── RIGHT PANEL ─── -->
+      <aside class="right-panel" id="rightPanel">
+        <div class="right-panel-scroll scroll">
+
+          <!-- Model & Config -->
+          <div class="acc-section">
+            <div class="acc-header">
+              <span>Modèle & Config</span>
+              <span class="acc-arrow open">▼</span>
+            </div>
+            <div class="acc-body" id="accModelBody"></div>
+          </div>
+
+          <!-- Context window -->
+          <div class="acc-section">
+            <div class="acc-header">
+              <span>Fenêtre de Contexte</span>
+              <span class="acc-arrow open">▼</span>
+            </div>
+            <div class="acc-body" id="accContextBody"></div>
+          </div>
+
+          <!-- System prompt -->
+          <div class="acc-section">
+            <div class="acc-header">
+              <span>Prompt Système</span>
+              <span class="acc-arrow open">▼</span>
+            </div>
+            <div class="acc-body" id="accPromptBody"></div>
+          </div>
+
+          <!-- Context tags -->
+          <div class="acc-section">
+            <div class="acc-header">
+              <span>Contextes Rapides</span>
+              <span class="acc-arrow open">▼</span>
+            </div>
+            <div class="acc-body" id="accTagsBody"></div>
+          </div>
+
+          <!-- Infra VPS -->
+          <div class="acc-section">
+            <div class="acc-header">
+              <span>Infra VPS</span>
+              <span class="acc-arrow open">▼</span>
+            </div>
+            <div class="acc-body" id="accVpsBody"></div>
+          </div>
+
+          <!-- Raccourcis (closed by default) -->
+          <div class="acc-section">
+            <div class="acc-header">
+              <span>Raccourcis</span>
+              <span class="acc-arrow">▼</span>
+            </div>
+            <div class="acc-body hidden" id="accShortcutsBody"></div>
+          </div>
+
+        </div>
+      </aside>
+
     </div>
   </div>
 
-  
-  <div id="adminManage" class="admin-manage" style="display:none">
-    <strong class="admin-label">Gestion des comptes</strong>
-    <form id="adminCreateForm" class="admin-create-form">
-      <input id="newProfileInput" class="inp" type="text" placeholder="Identifiant" />
-      <input id="newProfilePin" class="inp" type="password" placeholder="Mot de passe" />
-      <select id="newProfileStatus" class="inp"><option value="active">actif</option><option value="disabled">désactivé</option></select>
-      <label style="color:#f3e3b0;font-size:12px;display:flex;align-items:center;gap:6px"><input id="newProfileIsAdmin" type="checkbox" /> admin</label>
-      <button class="btn" type="submit">CRÉER</button>
-    </form>
-    <pre id="adminProfiles" class="admin-profiles"></pre>
-  </div>
-
-
-  <div class="msgs" id="msgs" role="log" aria-live="polite"></div>
-
-  <div class="inp-row">
-    <textarea class="inp" id="inp" rows="1" placeholder="Votre commande impériale…" autocomplete="off" aria-label="Message"></textarea>
-    <button class="btn" id="btn">ENVOYER</button>
-  </div>
-</div>
-
-<!-- LOGIN MODAL -->
-<div id="loginModal" class="login-modal" aria-label="Connexion profil">
-  <div class="login-card">
-    <div class="ornament tl"></div>
-    <div class="ornament tr"></div>
-    <div class="ornament bl"></div>
-    <div class="ornament br"></div>
-    <h2 class="login-title">Identification</h2>
-    <p class="login-sub">Connectez-vous avec votre identifiant et mot de passe.</p>
-    <form id="loginForm" class="login-form">
-      <input id="profileInput" type="text" class="inp" placeholder="Identifiant" required />
-      <input id="pinInput" type="password" class="inp" placeholder="Mot de passe" required />
-      <button type="submit" class="btn btn-full">ENTRER</button>
-    </form>
-    <small class="login-hint">Accès réservé aux comptes déjà enregistrés. Aucun auto-enregistrement.</small>
-    <div class="login-sep"></div>
-    <div class="login-sep"></div>
-    
-
+  <!-- ═══ LOGIN MODAL ═══ -->
+  <div id="loginModal" class="login-modal">
+    <div class="login-card">
+      <div class="login-title">Connexion Impériale</div>
+      <p class="login-subtitle">Identifiez-vous pour accéder à l'interface Susanoo.</p>
+      <form id="loginForm" class="login-form">
+        <input id="profileInput" type="text" placeholder="Profil (ex: raphael)" required class="login-input">
+        <input id="pinInput" type="password" placeholder="PIN" required class="login-input">
+        <button type="submit" class="login-submit">Entrer</button>
+      </form>
+      <div class="login-divider"></div>
+      <form id="adminLoginForm" class="login-form">
+        <input id="adminUser" type="text" placeholder="Admin user" class="login-input">
+        <input id="adminPass" type="password" placeholder="Admin password" class="login-input">
+        <button type="submit" class="login-submit admin">Connexion admin</button>
+      </form>
+      <div id="adminPanel" class="admin-panel" style="display:none">
+        <strong class="admin-title">Profils</strong>
+        <pre id="adminProfiles" class="admin-profiles"></pre>
+      </div>
     </div>
-</div>
+  </div>
 
-<script src="script.js"></script>
+  <!-- ═══ VIEWPORT SWITCHER ═══ -->
+  <div class="viewport-switcher">
+    <button class="vp-btn active" data-vp="desktop">🖥 Desktop</button>
+    <button class="vp-btn" data-vp="tablet">⬜ Tablet</button>
+    <button class="vp-btn" data-vp="mobile">📱 Mobile</button>
+  </div>
+
+  <script src="script.js"></script>
 </body>
 </html>
