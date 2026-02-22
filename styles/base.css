@@ -205,6 +205,22 @@ input[type=range]::-webkit-slider-thumb {
 .viewport-tablet .options-toggle,
 .viewport-mobile .options-toggle { display: flex !important; }
 
+/* Claude toggle - ensure it's visible and responsive on all viewports */
+.viewport-mobile .claude-toggle {
+  gap: 6px;
+}
+.viewport-mobile .claude-toggle-label {
+  font-size: 9px;
+}
+.viewport-mobile .claude-toggle-slider {
+  width: 38px;
+  height: 20px;
+}
+.viewport-mobile .claude-toggle-slider::before {
+  width: 16px;
+  height: 16px;
+}
+
 /* ══════════════════════════════════════════════════════════
    LAYOUT BODY
    ══════════════════════════════════════════════════════════ */

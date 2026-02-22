@@ -32,7 +32,7 @@ try {
   useSSH = false;
 }
 
-function executeDockerCommand(cmd: string, timeout = 10000): string {
+function executeDockerCommand(cmd: string, timeout = 30000): string {
   const fullCmd = useSSH ? `ssh ${sshAlias} "${cmd.replace(/"/g, '\\"')}"` : cmd;
   return execSync(fullCmd, {
     encoding: 'utf8',
