@@ -168,6 +168,11 @@ input[type=range]::-webkit-slider-thumb {
 .viewport-mobile .navbar-subtitle,
 .viewport-mobile .status-label { display: none; }
 
+/* Options toggle button - visible only on mobile/tablet */
+.viewport-desktop .options-toggle { display: none !important; }
+.viewport-tablet .options-toggle,
+.viewport-mobile .options-toggle { display: flex !important; }
+
 /* ══════════════════════════════════════════════════════════
    LAYOUT BODY
    ══════════════════════════════════════════════════════════ */

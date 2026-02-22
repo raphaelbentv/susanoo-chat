@@ -96,8 +96,21 @@ export async function handleChat(req: IncomingMessage, res: ServerResponse): Pro
       return json(res, 400, { error: 'message_required' });
     }
 
-    const reply = sendToHashirama(message, session.profile);
-    return json(res, 200, { reply });
+    const options = {
+      model: data.model || 'claude-sonnet-4',
+      temperature: data.temperature || 0.8,
+      maxTokens: data.maxTokens || 8192,
+      deepSearch: data.deepSearch || false,
+      contexts: data.contexts || [],
+      connectors: data.connectors || [],
+    };
+
+    const reply = sendToHashirama(message, session.profile, options);
+    return json(res, 200, {
+      reply,
+      model: options.model,
+      tokensUsed: Math.round(reply.length * 0.3),
+    });
   } catch (e) {
     log('error', 'chat_failed', { profile: session.profile, error: (e as Error).message });
     return json(res, 500, { error: 'chat_failed' });

@@ -27,10 +27,18 @@ export interface AdminLoginResponse {
 
 export interface ChatRequest {
   message: string;
+  model?: string;
+  temperature?: number;
+  maxTokens?: number;
+  deepSearch?: boolean;
+  contexts?: string[];
+  connectors?: string[];
 }
 
 export interface ChatResponse {
   reply: string;
+  model?: string;
+  tokensUsed?: number;
 }
 
 export interface ChangePinRequest {

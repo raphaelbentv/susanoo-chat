@@ -29,6 +29,10 @@ const identifierInput = $('#identifierInput');
 const passwordInput   = $('#passwordInput');
 const adminPanel     = $('#adminPanel');
 const adminProfiles  = $('#adminProfiles');
+const optionsToggle  = $('#optionsToggle');
+const optionsModal   = $('#optionsModal');
+const closeOptions   = $('#closeOptions');
+const optionsModalContent = $('#optionsModalContent');
 
 // ── STATE ───────────────────────────────────────────────────
 let viewport         = 'desktop';
@@ -51,6 +55,9 @@ let passwordPolicy   = null;
 let sessionCheckTimer = null;
 let currentTheme     = localStorage.getItem('hashirama_theme') || 'emperor';
 let loadedThemes     = new Set();
+let selectedModel    = localStorage.getItem('hashirama_model') || 'claude-sonnet-4';
+let deepSearchEnabled = localStorage.getItem('hashirama_deep_search') === 'true';
+let activeConnectors = JSON.parse(localStorage.getItem('hashirama_connectors') || '[]');
 
 // ── MOCK CONVERSATIONS ──────────────────────────────────────
 const CONVS = [
@@ -73,6 +80,21 @@ const THEMES = [
   { id: 'ghost', name: 'White Ghost', primary: '#1a1a1a', bg: '#eeecea', accent: '#fff', icon: '👻' },
   { id: 'storm', name: 'Storm Deity', primary: '#8840ff', bg: '#040310', accent: '#9055ff', icon: '⚡' },
   { id: 'brutal', name: 'Brutalist Oracle', primary: '#fff', bg: '#090909', accent: '#000', icon: '▪️' },
+];
+
+const MODELS = [
+  { id: 'claude-opus-4', name: 'Opus 4', desc: 'Le plus puissant · Raisonnement complexe', cost: 'high' },
+  { id: 'claude-sonnet-4', name: 'Sonnet 4', desc: 'Équilibré · Performance/coût optimal', cost: 'medium' },
+  { id: 'claude-haiku-4', name: 'Haiku 4', desc: 'Rapide · Tâches simples', cost: 'low' },
+];
+
+const CONNECTORS = [
+  { id: 'calendar', name: 'Google Calendar', icon: '📅', desc: 'Accès agenda' },
+  { id: 'drive', name: 'Google Drive', icon: '📁', desc: 'Documents et fichiers' },
+  { id: 'gmail', name: 'Gmail', icon: '✉️', desc: 'Emails et contacts' },
+  { id: 'notion', name: 'Notion', icon: '📝', desc: 'Notes et bases de données' },
+  { id: 'github', name: 'GitHub', icon: '🐙', desc: 'Repos et code' },
+  { id: 'linear', name: 'Linear', icon: '📊', desc: 'Issues et projets' },
 ];
 
 // ── HELPERS ─────────────────────────────────────────────────
@@ -260,22 +282,34 @@ function renderStatusWidget() {
 
 // ── RIGHT PANEL ─────────────────────────────────────────────
 function renderRightPanel() {
-  // Model & Config
+  // Model selection
   const accModel = $('#accModelBody');
   if (accModel) {
+    const currentModel = MODELS.find(m => m.id === selectedModel) || MODELS[1];
     accModel.innerHTML = `
-      <div class="model-card">
-        <div class="model-card-name">SONNET 4.6</div>
-        <div class="model-card-desc">Smart · Efficient · API</div>
+      <div style="margin-bottom:12px;">
+        ${MODELS.map(m => `
+          <div class="model-card${m.id === selectedModel ? ' active' : ''}" data-model="${m.id}" style="padding:10px 12px;margin-bottom:8px;border:1px solid var(--border-dim);cursor:pointer;transition:all 0.15s;${m.id === selectedModel ? 'border-color:var(--gold);background:var(--gold-faint);' : ''}">
+            <div class="model-card-name" style="font-size:11px;">${m.name}</div>
+            <div class="model-card-desc" style="font-size:10px;">${m.desc}</div>
+          </div>
+        `).join('')}
       </div>
+      <div class="gold-divider"></div>
       <div class="stat-row"><span class="stat-key">Température</span><span class="stat-val">${(temperature/100).toFixed(2)}</span></div>
       <input type="range" min="0" max="100" value="${temperature}" id="tempSlider">
       <div class="stat-row" style="margin-top:4px"><span class="stat-key">Max tokens</span><span class="stat-val">${Math.round(maxTokens*81.92).toLocaleString('fr-FR')}</span></div>
-      <input type="range" min="10" max="100" value="${maxTokens}" id="maxTokSlider">
-      ${statRowHtml('Streaming', 'Activé', 'success')}
-      ${statRowHtml('Top-P', '0.95')}`;
-    $('#tempSlider').addEventListener('input', e => { temperature = +e.target.value; renderRightPanel(); });
-    $('#maxTokSlider').addEventListener('input', e => { maxTokens = +e.target.value; renderRightPanel(); });
+      <input type="range" min="10" max="100" value="${maxTokens}" id="maxTokSlider">`;
+
+    accModel.querySelectorAll('.model-card').forEach(el => {
+      el.addEventListener('click', () => {
+        selectedModel = el.dataset.model;
+        localStorage.setItem('hashirama_model', selectedModel);
+        renderRightPanel();
+      });
+    });
+    $('#tempSlider')?.addEventListener('input', e => { temperature = +e.target.value; renderRightPanel(); });
+    $('#maxTokSlider')?.addEventListener('input', e => { maxTokens = +e.target.value; renderRightPanel(); });
   }
 
   // Context window
@@ -341,20 +375,63 @@ function renderRightPanel() {
     });
   }
 
-  // VPS
-  const accVps = $('#accVpsBody');
-  if (accVps) {
-    accVps.innerHTML = `
-      <div class="vps-grid">
-        <div class="vps-card"><span class="vps-card-val ok">●</span><span class="vps-card-label">Statut</span></div>
-        <div class="vps-card"><span class="vps-card-val">23%</span><span class="vps-card-label">CPU</span></div>
-        <div class="vps-card"><span class="vps-card-val">41%</span><span class="vps-card-label">RAM</span></div>
-        <div class="vps-card"><span class="vps-card-val ok">14d</span><span class="vps-card-label">Uptime</span></div>
+  // Options
+  const accOptions = $('#accOptionsBody');
+  if (accOptions) {
+    accOptions.innerHTML = `
+      <div style="padding:10px 12px;border:1px solid var(--border-dim);margin-bottom:10px;cursor:pointer;transition:all 0.15s;${deepSearchEnabled ? 'border-color:var(--gold);background:var(--gold-faint);' : ''}" id="deepSearchToggle">
+        <div style="display:flex;justify-content:space-between;align-items:center;">
+          <div>
+            <div style="font-family:var(--font-mono);font-size:9px;color:var(--gold);opacity:0.8;margin-bottom:3px;">RECHERCHE APPROFONDIE</div>
+            <div style="font-size:10px;color:var(--text-faint);">Web search + analyse multi-sources</div>
+          </div>
+          <div style="font-size:18px;">${deepSearchEnabled ? '✓' : '○'}</div>
+        </div>
       </div>
-      ${statRowHtml('IP', '••••••••')}
-      ${statRowHtml('Port API', ':••••')}
-      ${statRowHtml('SSL', 'Valide ✓', 'success')}
-      ${statRowHtml('Traefik', 'Actif', 'success')}`;
+      ${statRowHtml('Streaming', 'Activé', 'success')}
+      ${statRowHtml('Top-P', '0.95')}
+      ${statRowHtml('Safety', 'Standard')}`;
+
+    $('#deepSearchToggle')?.addEventListener('click', () => {
+      deepSearchEnabled = !deepSearchEnabled;
+      localStorage.setItem('hashirama_deep_search', String(deepSearchEnabled));
+      renderRightPanel();
+    });
+  }
+
+  // Connecteurs
+  const accConnectors = $('#accConnectorsBody');
+  if (accConnectors) {
+    accConnectors.innerHTML = `
+      <div style="display:grid;gap:8px;">
+        ${CONNECTORS.map(c => `
+          <div class="connector-card${activeConnectors.includes(c.id) ? ' active' : ''}" data-connector="${c.id}" style="padding:10px 12px;border:1px solid var(--border-dim);cursor:pointer;transition:all 0.15s;${activeConnectors.includes(c.id) ? 'border-color:var(--gold);background:var(--gold-faint);' : ''}">
+            <div style="display:flex;justify-content:space-between;align-items:center;">
+              <div style="display:flex;align-items:center;gap:8px;">
+                <span style="font-size:16px;">${c.icon}</span>
+                <div>
+                  <div style="font-size:11px;color:var(--text);margin-bottom:2px;">${c.name}</div>
+                  <div style="font-size:9px;color:var(--text-faint);">${c.desc}</div>
+                </div>
+              </div>
+              <div style="font-size:14px;color:var(--gold);">${activeConnectors.includes(c.id) ? '✓' : '○'}</div>
+            </div>
+          </div>
+        `).join('')}
+      </div>`;
+
+    accConnectors.querySelectorAll('.connector-card').forEach(el => {
+      el.addEventListener('click', () => {
+        const connectorId = el.dataset.connector;
+        if (activeConnectors.includes(connectorId)) {
+          activeConnectors = activeConnectors.filter(x => x !== connectorId);
+        } else {
+          activeConnectors.push(connectorId);
+        }
+        localStorage.setItem('hashirama_connectors', JSON.stringify(activeConnectors));
+        renderRightPanel();
+      });
+    });
   }
 
   // Shortcuts
@@ -595,15 +672,27 @@ async function sendMessage() {
   sendBtn.disabled = true;
 
   try {
-    const r = await fetch('/api/chat', { method: 'POST', headers: authHeaders(), body: JSON.stringify({ message: text }) });
+    const payload = {
+      message: text,
+      model: selectedModel,
+      temperature: temperature / 100,
+      maxTokens: Math.round(maxTokens * 81.92),
+      deepSearch: deepSearchEnabled,
+      contexts: activeTags,
+      connectors: activeConnectors,
+    };
+
+    const r = await fetch('/api/chat', { method: 'POST', headers: authHeaders(), body: JSON.stringify(payload) });
     if (r.status === 401) { handleSessionExpired(); return; }
     const d = await r.json().catch(() => ({}));
     typing = false;
     sendBtn.disabled = false;
     if (!r.ok) throw new Error(d.error || 'chat_error');
     const reply = d.reply || 'Réponse vide.';
-    const toks = Math.round(reply.length * 0.3);
-    addMessage('ai', reply, `${toks} tokens · claude-sonnet-4-6`);
+    const toks = d.tokensUsed || Math.round(reply.length * 0.3);
+    const modelName = MODELS.find(m => m.id === selectedModel)?.name || selectedModel;
+    addMessage('ai', reply, `${toks} tokens · ${modelName}`);
+    tokenCount += toks;
     api('/api/memory/add', { role: 'ai', text: reply }).catch(() => {});
     renderRightPanel();
     renderStatusWidget();
@@ -687,6 +776,120 @@ loginModal.addEventListener('click', (e) => {
 });
 
 navAvatar.addEventListener('click', () => { loginModal.classList.remove('hidden'); });
+
+// Options modal (mobile/tablet)
+function renderOptionsModal() {
+  if (!optionsModalContent) return;
+
+  optionsModalContent.innerHTML = `
+    <div class="acc-section">
+      <div class="acc-header" style="cursor:default;">
+        <span>Modèle IA</span>
+      </div>
+      <div class="acc-body" id="modalAccModelBody"></div>
+    </div>
+    <div class="acc-section">
+      <div class="acc-header" style="cursor:default;">
+        <span>Options Avancées</span>
+      </div>
+      <div class="acc-body" id="modalAccOptionsBody"></div>
+    </div>
+    <div class="acc-section">
+      <div class="acc-header" style="cursor:default;">
+        <span>Connecteurs</span>
+      </div>
+      <div class="acc-body" id="modalAccConnectorsBody"></div>
+    </div>
+    <div class="acc-section">
+      <div class="acc-header" style="cursor:default;">
+        <span>Thème Visuel</span>
+      </div>
+      <div class="acc-body" id="modalAccThemeBody"></div>
+    </div>`;
+
+  // Copy content from right panel to modal
+  const accModel = $('#accModelBody');
+  const modalAccModel = $('#modalAccModelBody');
+  if (accModel && modalAccModel) modalAccModel.innerHTML = accModel.innerHTML;
+
+  const accOptions = $('#accOptionsBody');
+  const modalAccOptions = $('#modalAccOptionsBody');
+  if (accOptions && modalAccOptions) modalAccOptions.innerHTML = accOptions.innerHTML;
+
+  const accConnectors = $('#accConnectorsBody');
+  const modalAccConnectors = $('#modalAccConnectorsBody');
+  if (accConnectors && modalAccConnectors) modalAccConnectors.innerHTML = accConnectors.innerHTML;
+
+  const accTheme = $('#accThemeBody');
+  const modalAccTheme = $('#modalAccThemeBody');
+  if (accTheme && modalAccTheme) modalAccTheme.innerHTML = accTheme.innerHTML;
+
+  // Re-attach event listeners (since we copied innerHTML, events are lost)
+  setTimeout(() => {
+    modalAccModel?.querySelectorAll('.model-card').forEach(el => {
+      el.addEventListener('click', () => {
+        selectedModel = el.dataset.model;
+        localStorage.setItem('hashirama_model', selectedModel);
+        renderRightPanel();
+        renderOptionsModal();
+      });
+    });
+
+    modalAccModel?.querySelector('#tempSlider')?.addEventListener('input', e => {
+      temperature = +e.target.value;
+      renderRightPanel();
+      renderOptionsModal();
+    });
+
+    modalAccModel?.querySelector('#maxTokSlider')?.addEventListener('input', e => {
+      maxTokens = +e.target.value;
+      renderRightPanel();
+      renderOptionsModal();
+    });
+
+    modalAccOptions?.querySelector('#deepSearchToggle')?.addEventListener('click', () => {
+      deepSearchEnabled = !deepSearchEnabled;
+      localStorage.setItem('hashirama_deep_search', String(deepSearchEnabled));
+      renderRightPanel();
+      renderOptionsModal();
+    });
+
+    modalAccConnectors?.querySelectorAll('.connector-card').forEach(el => {
+      el.addEventListener('click', () => {
+        const connectorId = el.dataset.connector;
+        if (activeConnectors.includes(connectorId)) {
+          activeConnectors = activeConnectors.filter(x => x !== connectorId);
+        } else {
+          activeConnectors.push(connectorId);
+        }
+        localStorage.setItem('hashirama_connectors', JSON.stringify(activeConnectors));
+        renderRightPanel();
+        renderOptionsModal();
+      });
+    });
+
+    modalAccTheme?.querySelectorAll('.theme-card').forEach(el => {
+      el.addEventListener('click', () => {
+        const themeId = el.dataset.theme;
+        applyTheme(themeId);
+        renderOptionsModal();
+      });
+    });
+  }, 10);
+}
+
+optionsToggle?.addEventListener('click', () => {
+  renderOptionsModal();
+  optionsModal.classList.remove('hidden');
+});
+
+closeOptions?.addEventListener('click', () => {
+  optionsModal.classList.add('hidden');
+});
+
+optionsModal?.addEventListener('click', (e) => {
+  if (e.target === optionsModal) optionsModal.classList.add('hidden');
+});
 
 $$('.vp-btn').forEach(btn => {
   btn.addEventListener('click', () => setViewport(btn.dataset.vp));

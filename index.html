@@ -40,6 +40,7 @@
         <div class="navbar-subtitle">Interface Impériale</div>
       </div>
       <div class="navbar-right">
+        <button class="navbar-btn options-toggle" id="optionsToggle" aria-label="Options" style="display:none;">⚙</button>
         <div class="navbar-status">
           <div class="status-dot"></div>
           <span class="status-label" id="statusLabel">Claude · Actif</span>
@@ -122,10 +123,10 @@
       <aside class="right-panel" id="rightPanel">
         <div class="right-panel-scroll scroll">
 
-          <!-- Model & Config -->
+          <!-- Model selection -->
           <div class="acc-section">
             <div class="acc-header">
-              <span>Modèle & Config</span>
+              <span>Modèle IA</span>
               <span class="acc-arrow open">▼</span>
             </div>
             <div class="acc-body" id="accModelBody"></div>
@@ -134,7 +135,7 @@
           <!-- Context window -->
           <div class="acc-section">
             <div class="acc-header">
-              <span>Fenêtre de Contexte</span>
+              <span>Session & Statistiques</span>
               <span class="acc-arrow open">▼</span>
             </div>
             <div class="acc-body" id="accContextBody"></div>
@@ -152,28 +153,37 @@
           <!-- Context tags -->
           <div class="acc-section">
             <div class="acc-header">
-              <span>Contextes Rapides</span>
+              <span>Contextes Actifs</span>
               <span class="acc-arrow open">▼</span>
             </div>
             <div class="acc-body" id="accTagsBody"></div>
+          </div>
+
+          <!-- Options -->
+          <div class="acc-section">
+            <div class="acc-header">
+              <span>Options Avancées</span>
+              <span class="acc-arrow open">▼</span>
+            </div>
+            <div class="acc-body" id="accOptionsBody"></div>
+          </div>
+
+          <!-- Connecteurs -->
+          <div class="acc-section">
+            <div class="acc-header">
+              <span>Connecteurs</span>
+              <span class="acc-arrow">▼</span>
+            </div>
+            <div class="acc-body hidden" id="accConnectorsBody"></div>
           </div>
 
           <!-- Theme selector -->
           <div class="acc-section">
             <div class="acc-header">
               <span>Thème Visuel</span>
-              <span class="acc-arrow open">▼</span>
+              <span class="acc-arrow">▼</span>
             </div>
-            <div class="acc-body" id="accThemeBody"></div>
-          </div>
-
-          <!-- Infra VPS -->
-          <div class="acc-section">
-            <div class="acc-header">
-              <span>Infra VPS</span>
-              <span class="acc-arrow open">▼</span>
-            </div>
-            <div class="acc-body" id="accVpsBody"></div>
+            <div class="acc-body hidden" id="accThemeBody"></div>
           </div>
 
           <!-- Raccourcis (closed by default) -->
@@ -188,6 +198,17 @@
         </div>
       </aside>
 
+    </div>
+  </div>
+
+  <!-- ═══ OPTIONS MODAL (Mobile/Tablet) ═══ -->
+  <div id="optionsModal" class="login-modal hidden">
+    <div class="login-card" style="max-width:92vw;max-height:90vh;overflow-y:auto;">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
+        <div class="login-title" style="margin:0;">Options</div>
+        <button id="closeOptions" style="background:transparent;border:1px solid var(--border-dim);width:32px;height:32px;cursor:pointer;color:var(--text-dim);">✕</button>
+      </div>
+      <div id="optionsModalContent" style="display:flex;flex-direction:column;gap:16px;"></div>
     </div>
   </div>
 
