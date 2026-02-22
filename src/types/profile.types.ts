@@ -14,6 +14,13 @@ export type Permission =
   | 'roles_manage'
   | 'pin_reset';
 
+export type ThemeId = 'obsidian' | 'cyber' | 'emperor' | 'ghost' | 'storm' | 'brutal';
+
+export interface Preferences {
+  theme: ThemeId;
+  fontSize?: 'small' | 'medium' | 'large';
+}
+
 export interface Profile {
   salt: string;
   pinHash: string;
@@ -22,6 +29,7 @@ export interface Profile {
   pinChangedAt: string;
   lastLogin?: string;
   disabled: boolean;
+  preferences?: Preferences;
 }
 
 export interface Session {

@@ -1,0 +1,73 @@
+/* ══════════════════════════════════════════════════════════
+   THEME: Gilded Emperor (T3)
+   Palette: Gold (#c8a020), dark bg, art déco impérial
+   ══════════════════════════════════════════════════════════ */
+
+[data-theme="emperor"] {
+  /* ── Colors ─────────────────────────────────────────── */
+  --gold: #c8a020;
+  --gold-dim: rgba(200,158,28,0.35);
+  --gold-faint: rgba(170,120,25,0.09);
+  --gold-glow: rgba(200,158,28,0.18);
+  --bg: #050408;
+  --surface: rgba(6,5,4,0.97);
+  --surface2: rgba(10,8,5,0.98);
+  --border: rgba(170,120,25,0.20);
+  --border-dim: rgba(170,120,25,0.08);
+  --text: rgba(255,255,255,0.95);
+  --text-dim: rgba(255,255,255,0.70);
+  --text-faint: rgba(255,255,255,0.40);
+  --danger: #c0392b;
+  --success: #7a8a20;
+
+  /* ── Typography ─────────────────────────────────────── */
+  --font-display: 'Cinzel', serif;
+  --font-body: 'Cormorant Garamond', serif;
+  --font-mono: 'Space Mono', monospace;
+}
+
+/* ── Background Gradients ──────────────────────────────── */
+[data-theme="emperor"] .bg-layer-1 {
+  background:
+    radial-gradient(ellipse 70% 60% at 50% 100%, rgba(170,120,25,0.07), transparent 58%),
+    radial-gradient(ellipse 35% 35% at 50% 70%, rgba(90,60,8,0.08), transparent 50%),
+    repeating-linear-gradient(45deg, transparent, transparent 29px, rgba(170,120,25,0.007) 30px);
+}
+
+[data-theme="emperor"] .bg-layer-2 {
+  background: radial-gradient(ellipse 80% 75% at 50% 50%, transparent 30%, rgba(3,2,6,0.85) 100%);
+}
+
+/* ── Statue (Emperor-specific) ─────────────────────────── */
+[data-theme="emperor"] .statue-base {
+  background: linear-gradient(180deg, #0d0b06, #060400);
+}
+
+[data-theme="emperor"] .statue-body {
+  background: linear-gradient(168deg, #100e08, #070603, #030200);
+}
+
+[data-theme="emperor"] .statue-neck {
+  background: #0e0c07;
+}
+
+[data-theme="emperor"] .statue-head {
+  background: linear-gradient(148deg, #131108, #070603);
+}
+
+[data-theme="emperor"] .statue-crown {
+  background: linear-gradient(180deg, #1a1508, #0d0a03);
+}
+
+[data-theme="emperor"] .statue-crown-glow {
+  background: radial-gradient(ellipse 50% 100% at 50% 0%, rgba(200,155,35,0.12), transparent 70%);
+}
+
+[data-theme="emperor"] .statue-eye {
+  background: var(--gold);
+  box-shadow: 0 0 7px 3px rgba(200,158,28,0.8), 0 0 16px 5px rgba(200,158,28,0.22);
+}
+
+[data-theme="emperor"] .statue-floor-glow {
+  background: radial-gradient(ellipse 45% 100% at 50% 100%, rgba(170,120,25,0.05), transparent 65%);
+}
