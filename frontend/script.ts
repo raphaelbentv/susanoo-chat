@@ -49,6 +49,8 @@ let tokenCount       = 0;
 let sessionExpiresAt = Number(sessionStorage.getItem('hashi_expires') || 0);
 let passwordPolicy   = null;
 let sessionCheckTimer = null;
+let currentTheme     = localStorage.getItem('hashirama_theme') || 'emperor';
+let loadedThemes     = new Set();
 
 // ── MOCK CONVERSATIONS ──────────────────────────────────────
 const CONVS = [
@@ -63,6 +65,15 @@ const CONVS = [
   { id:9, title:"Bangkok — Projet immobilier", preview:"Analyse marché Sukhumvit…", time:"10 fév", group:"Plus ancien" },
 ];
 const ALL_TAGS = ["Venio","Creatio","Arrow","Kuro","MBWAY","EMA","Absys","Bangkok","Instagram","VPS"];
+
+const THEMES = [
+  { id: 'obsidian', name: 'Obsidian Sentinel', primary: '#bb1e00', bg: '#030303', accent: '#ff0000', icon: '🗡️' },
+  { id: 'cyber', name: 'Electric Ronin', primary: '#00d2ff', bg: '#00050c', accent: '#00ffe0', icon: '⚡' },
+  { id: 'emperor', name: 'Gilded Emperor', primary: '#c8a020', bg: '#050408', accent: '#ffd700', icon: '👑' },
+  { id: 'ghost', name: 'White Ghost', primary: '#1a1a1a', bg: '#eeecea', accent: '#fff', icon: '👻' },
+  { id: 'storm', name: 'Storm Deity', primary: '#8840ff', bg: '#040310', accent: '#9055ff', icon: '⚡' },
+  { id: 'brutal', name: 'Brutalist Oracle', primary: '#fff', bg: '#090909', accent: '#000', icon: '▪️' },
+];
 
 // ── HELPERS ─────────────────────────────────────────────────
 function nowLabel() { return new Date().toLocaleTimeString('fr-FR', { hour:'2-digit', minute:'2-digit' }); }
@@ -306,6 +317,30 @@ function renderRightPanel() {
     });
   }
 
+  // Theme selector
+  const accTheme = $('#accThemeBody');
+  if (accTheme) {
+    accTheme.innerHTML = `
+      <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:10px;">
+        ${THEMES.map(t => `
+          <div class="theme-card${currentTheme === t.id ? ' active' : ''}" data-theme="${t.id}" style="padding:12px;border:1px solid var(--border);cursor:pointer;transition:all 0.2s;${currentTheme === t.id ? 'border-color:var(--gold);background:var(--gold-faint);' : ''}">
+            <div style="display:flex;gap:4px;height:24px;margin-bottom:8px;">
+              <div style="flex:1;background:${t.primary};border-radius:2px;"></div>
+              <div style="flex:1;background:${t.bg};border-radius:2px;"></div>
+              <div style="flex:1;background:${t.accent};border-radius:2px;"></div>
+            </div>
+            <div style="font-size:10px;color:var(--text-dim);text-align:center;margin-bottom:4px;">${t.icon} ${t.name}</div>
+          </div>
+        `).join('')}
+      </div>`;
+    accTheme.querySelectorAll('.theme-card').forEach(el => {
+      el.addEventListener('click', () => {
+        const themeId = el.dataset.theme;
+        applyTheme(themeId);
+      });
+    });
+  }
+
   // VPS
   const accVps = $('#accVpsBody');
   if (accVps) {
@@ -330,6 +365,49 @@ function renderRightPanel() {
       `<div class="shortcut-row"><span class="shortcut-action">${a}</span><span class="shortcut-key">${k}</span></div>`
     ).join('');
   }
+}
+
+// ── MESSAGES ────────────────────────────────────────────────
+// ── THEME SYSTEM ────────────────────────────────────────────
+function loadThemeCSS(themeId) {
+  if (loadedThemes.has(themeId)) return;
+  const link = document.createElement('link');
+  link.rel = 'stylesheet';
+  link.href = `/styles/themes/${themeId}.css`;
+  link.id = `theme-${themeId}`;
+  document.head.appendChild(link);
+  loadedThemes.add(themeId);
+}
+
+async function applyTheme(themeId) {
+  // Validate theme
+  if (!THEMES.find(t => t.id === themeId)) themeId = 'emperor';
+
+  // Update DOM attribute
+  document.documentElement.setAttribute('data-theme', themeId);
+
+  // Load theme CSS if needed
+  loadThemeCSS(themeId);
+
+  // Save to localStorage
+  localStorage.setItem('hashirama_theme', themeId);
+  currentTheme = themeId;
+
+  // Save to server if logged in
+  if (token) {
+    try {
+      await fetch('/api/preferences', {
+        method: 'POST',
+        headers: authHeaders(),
+        body: JSON.stringify({ theme: themeId }),
+      });
+    } catch (e) {
+      console.warn('[applyTheme] Failed to save to server:', e);
+    }
+  }
+
+  // Re-render right panel to update active state
+  renderRightPanel();
 }
 
 // ── MESSAGES ────────────────────────────────────────────────
@@ -481,6 +559,12 @@ async function login(identifier, password) {
 
   // Handle profile login
   saveSession(d.token, d.identifier, d.role || 'user', d.expiresAt || Date.now() + 86400000);
+
+  // Apply theme from server preferences
+  if (d.preferences && d.preferences.theme) {
+    await applyTheme(d.preferences.theme);
+  }
+
   loginModal.classList.add('hidden');
   statusLabel.textContent = `${profile} · ${role}`;
   navAvatar.textContent = profile.charAt(0).toUpperCase();
@@ -612,6 +696,9 @@ $$('.vp-btn').forEach(btn => {
 // INIT
 // ══════════════════════════════════════════════════════════
 async function init() {
+  // Initialize theme from localStorage first (instant)
+  await applyTheme(currentTheme);
+
   updateSessionMarker();
   renderConversations();
   renderStatusWidget();
@@ -629,6 +716,17 @@ async function init() {
     startSessionTimer();
     updateSessionDisplay();
     loadHistory();
+
+    // Sync theme with server
+    try {
+      const r = await fetch('/api/session/info', { headers: authHeaders() });
+      const d = await r.json();
+      if (r.ok && d.preferences && d.preferences.theme && d.preferences.theme !== currentTheme) {
+        await applyTheme(d.preferences.theme);
+      }
+    } catch (e) {
+      console.warn('[init] Theme sync failed:', e);
+    }
   }
   if (adminToken) adminFetchProfiles().catch(() => {});
 }
