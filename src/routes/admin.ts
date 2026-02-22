@@ -1,7 +1,7 @@
 import type { IncomingMessage, ServerResponse } from 'http';
 import { json, parseBody, parseUrl } from '../utils/http.js';
 import { dbRead, dbWrite } from '../modules/database.js';
-import { createAdminSession, getAdminSession } from '../modules/session.js';
+import { createAdminSession, getAdminOrIsAdminSession } from '../modules/session.js';
 import { hashPin, genSalt } from '../modules/crypto.js';
 import { limiterCheck, limiterFail, limiterReset, loginKey, getClientIp } from '../modules/ratelimit.js';
 import { audit, readAuditLog } from '../modules/audit.js';
@@ -50,7 +50,7 @@ export async function handleAdminLogin(req: IncomingMessage, res: ServerResponse
 }
 
 export async function handleListProfiles(req: IncomingMessage, res: ServerResponse): Promise<void> {
-  const adminSession = getAdminSession(req.headers.authorization);
+  const adminSession = getAdminOrIsAdminSession(req.headers.authorization);
   if (!adminSession) {
     return json(res, 401, { error: 'unauthorized' });
   }
@@ -74,7 +74,7 @@ export async function handleListProfiles(req: IncomingMessage, res: ServerRespon
 }
 
 export async function handleChangeRole(req: IncomingMessage, res: ServerResponse): Promise<void> {
-  const adminSession = getAdminSession(req.headers.authorization);
+  const adminSession = getAdminOrIsAdminSession(req.headers.authorization);
   if (!adminSession) {
     return json(res, 401, { error: 'unauthorized' });
   }
@@ -107,7 +107,7 @@ export async function handleChangeRole(req: IncomingMessage, res: ServerResponse
 }
 
 export async function handleResetPin(req: IncomingMessage, res: ServerResponse): Promise<void> {
-  const adminSession = getAdminSession(req.headers.authorization);
+  const adminSession = getAdminOrIsAdminSession(req.headers.authorization);
   if (!adminSession) {
     return json(res, 401, { error: 'unauthorized' });
   }
@@ -147,7 +147,7 @@ export async function handleResetPin(req: IncomingMessage, res: ServerResponse):
 }
 
 export async function handleDisableProfile(req: IncomingMessage, res: ServerResponse): Promise<void> {
-  const adminSession = getAdminSession(req.headers.authorization);
+  const adminSession = getAdminOrIsAdminSession(req.headers.authorization);
   if (!adminSession) {
     return json(res, 401, { error: 'unauthorized' });
   }
@@ -179,7 +179,7 @@ export async function handleDisableProfile(req: IncomingMessage, res: ServerResp
 }
 
 export async function handleDeleteProfile(req: IncomingMessage, res: ServerResponse): Promise<void> {
-  const adminSession = getAdminSession(req.headers.authorization);
+  const adminSession = getAdminOrIsAdminSession(req.headers.authorization);
   if (!adminSession) {
     return json(res, 401, { error: 'unauthorized' });
   }
@@ -211,7 +211,7 @@ export async function handleDeleteProfile(req: IncomingMessage, res: ServerRespo
 }
 
 export async function handleAuditLog(req: IncomingMessage, res: ServerResponse): Promise<void> {
-  const adminSession = getAdminSession(req.headers.authorization);
+  const adminSession = getAdminOrIsAdminSession(req.headers.authorization);
   if (!adminSession) {
     return json(res, 401, { error: 'unauthorized' });
   }
@@ -224,7 +224,7 @@ export async function handleAuditLog(req: IncomingMessage, res: ServerResponse):
 }
 
 export async function handleCreateBackup(req: IncomingMessage, res: ServerResponse): Promise<void> {
-  const adminSession = getAdminSession(req.headers.authorization);
+  const adminSession = getAdminOrIsAdminSession(req.headers.authorization);
   if (!adminSession) {
     return json(res, 401, { error: 'unauthorized' });
   }
@@ -234,7 +234,7 @@ export async function handleCreateBackup(req: IncomingMessage, res: ServerRespon
 }
 
 export async function handleListBackups(req: IncomingMessage, res: ServerResponse): Promise<void> {
-  const adminSession = getAdminSession(req.headers.authorization);
+  const adminSession = getAdminOrIsAdminSession(req.headers.authorization);
   if (!adminSession) {
     return json(res, 401, { error: 'unauthorized' });
   }

@@ -170,3 +170,30 @@ export function cleanExpiredSessions(): number {
 export function getActiveSessionCount(): number {
   return SESSIONS.size + ADMIN_SESSIONS.size;
 }
+
+/**
+ * Check if user has admin privileges
+ * Returns admin session OR user session with isAdmin: true
+ */
+export function getAdminOrIsAdminSession(authHeader?: string): { user: string; isUserSession: boolean } | null {
+  // First try to get admin session
+  const adminSession = getAdminSession(authHeader);
+  if (adminSession) {
+    return { user: adminSession.user, isUserSession: false };
+  }
+
+  // Then try user session with isAdmin check
+  const userSession = getSession(authHeader);
+  if (!userSession) return null;
+
+  // Import dbRead to check isAdmin flag
+  const { dbRead } = require('./database.js');
+  const db = dbRead();
+  const profile = db.profiles[userSession.profile];
+
+  if (profile && profile.isAdmin === true) {
+    return { user: userSession.profile, isUserSession: true };
+  }
+
+  return null;
+}

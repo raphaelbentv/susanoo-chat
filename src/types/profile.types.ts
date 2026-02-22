@@ -29,6 +29,7 @@ export interface Profile {
   pinChangedAt: string;
   lastLogin?: string;
   disabled: boolean;
+  isAdmin?: boolean;
   preferences?: Preferences;
 }
 
