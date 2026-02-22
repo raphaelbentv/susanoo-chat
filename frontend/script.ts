@@ -1310,12 +1310,6 @@ async function login(identifier, password) {
     optionsToggle.style.display = 'flex';
   }
 
-  // Show admin button if user is admin
-  if (isAdmin && adminToggle) {
-    adminToggle.style.display = 'flex';
-    console.log('[DEBUG] Admin toggle displayed for admin user');
-  }
-
   if (d.pinExpired) {
     setTimeout(() => alert('Votre mot de passe a expiré. Veuillez le changer.'), 500);
   }
@@ -1931,7 +1925,16 @@ loginModal.addEventListener('click', (e) => {
   if (e.target === loginModal && token) loginModal.classList.add('hidden');
 });
 
-navAvatar.addEventListener('click', () => { loginModal.classList.remove('hidden'); });
+navAvatar.addEventListener('click', async () => {
+  if (isAdmin && token) {
+    // Si l'utilisateur est admin et connecté, ouvrir le dashboard admin
+    await loadAdminData();
+    showAdminDashboard();
+  } else {
+    // Sinon, ouvrir la modal de login
+    loginModal.classList.remove('hidden');
+  }
+});
 
 // Options modal (mobile/tablet)
 function renderOptionsModal() {
@@ -2077,11 +2080,6 @@ artifactDownload?.addEventListener('click', downloadArtifact);
 
 // Admin dashboard event listeners
 adminDashboardClose?.addEventListener('click', hideAdminDashboard);
-adminToggle?.addEventListener('click', async () => {
-  if (!isAdmin) return;
-  await loadAdminData();
-  showAdminDashboard();
-});
 
 // Admin tabs switching
 $$('.admin-tab').forEach(tab => {
