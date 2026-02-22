@@ -10,6 +10,7 @@ import { createBackup } from './modules/backup.js';
 
 // Routes
 import { handleHealth, handlePasswordPolicy, handleFrontendError } from './routes/health.js';
+import { handleUnifiedLogin } from './routes/login.js';
 import {
   handleProfileLogin,
   handleSessionInfo,
@@ -69,13 +70,17 @@ const server = http.createServer(async (req, res) => {
     return handleFrontendError(req, res);
   }
 
-  // ─── PROFILE LOGIN ─────────────────────────────────────
+  // ─── UNIFIED LOGIN ─────────────────────────────────────
+
+  if (req.method === 'POST' && pathname === '/api/login') {
+    return handleUnifiedLogin(req, res);
+  }
+
+  // ─── LEGACY ENDPOINTS (backwards compatibility) ────────
 
   if (req.method === 'POST' && pathname === '/api/profile/login') {
     return handleProfileLogin(req, res);
   }
-
-  // ─── ADMIN LOGIN ────────────────────────────────────────
 
   if (req.method === 'POST' && pathname === '/api/admin/login') {
     return handleAdminLogin(req, res);

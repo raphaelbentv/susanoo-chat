@@ -25,11 +25,8 @@ const sessionTime    = $('#sessionTime');
 const ctxTokens      = $('#ctxTokens');
 const loginModal     = $('#loginModal');
 const loginForm      = $('#loginForm');
-const profileInput   = $('#profileInput');
-const pinInput       = $('#pinInput');
-const adminLoginForm = $('#adminLoginForm');
-const adminUser      = $('#adminUser');
-const adminPass      = $('#adminPass');
+const identifierInput = $('#identifierInput');
+const passwordInput   = $('#passwordInput');
 const adminPanel     = $('#adminPanel');
 const adminProfiles  = $('#adminProfiles');
 
@@ -454,24 +451,36 @@ async function loadHistory() {
   } catch (e) { console.error('[loadHistory]', e); }
 }
 
-async function login(profileName, pin) {
-  const r = await fetch('/api/profile/login', {
+async function login(identifier, password) {
+  const r = await fetch('/api/login', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ profile: profileName, pin }),
+    body: JSON.stringify({ identifier, password }),
   });
   const d = await r.json();
 
   if (!r.ok) {
-    if (d.error === 'pin_policy_failed') {
+    if (d.error === 'password_policy_failed') {
       throw new Error('Mot de passe invalide :\n' + (d.details || []).join('\n'));
     }
     if (d.error === 'account_disabled') throw new Error('Compte désactivé');
     if (d.error === 'too_many_attempts') throw new Error('Trop de tentatives. Réessayez plus tard.');
+    if (d.error === 'invalid_credentials') throw new Error('Identifiant ou mot de passe incorrect');
     throw new Error(d.error || 'Erreur de connexion');
   }
 
-  saveSession(d.token, d.profile, d.role || 'user', d.expiresAt || Date.now() + 86400000);
+  // Handle admin login
+  if (d.type === 'admin') {
+    adminToken = d.token;
+    sessionStorage.setItem('hashi_admin_token', adminToken);
+    await adminFetchProfiles();
+    loginModal.classList.add('hidden');
+    statusLabel.textContent = 'Admin · Actif';
+    return;
+  }
+
+  // Handle profile login
+  saveSession(d.token, d.identifier, d.role || 'user', d.expiresAt || Date.now() + 86400000);
   loginModal.classList.add('hidden');
   statusLabel.textContent = `${profile} · ${role}`;
   navAvatar.textContent = profile.charAt(0).toUpperCase();
@@ -556,51 +565,37 @@ chatInput.addEventListener('keydown', (e) => {
 });
 sendBtn.addEventListener('click', sendMessage);
 
-// Login with password policy validation
+// Unified login form
 loginForm.addEventListener('submit', async (e) => {
   e.preventDefault();
-  const pin = pinInput.value;
-  // Client-side validation
-  const errors = validatePinClient(pin);
-  if (errors.length > 0 && !profileInput.value.trim()) {
-    alert('Mot de passe : ' + errors.join(', '));
+  const identifier = identifierInput.value.trim();
+  const password = passwordInput.value;
+
+  if (!identifier || !password) {
+    alert('Veuillez renseigner l\'identifiant et le mot de passe');
     return;
   }
-  try { await login(profileInput.value.trim(), pin); }
-  catch (err) { alert(err.message || 'Login invalide'); }
+
+  try {
+    await login(identifier, password);
+  } catch (err) {
+    alert(err.message || 'Connexion invalide');
+  }
 });
 
 // Password strength indicator on input
-pinInput.addEventListener('input', () => {
-  const errors = validatePinClient(pinInput.value);
+passwordInput.addEventListener('input', () => {
+  const errors = validatePinClient(passwordInput.value);
   if (errors.length > 0) {
-    pinInput.style.borderColor = 'rgba(192,57,43,0.5)';
-    pinInput.title = errors.join(' · ');
-  } else if (pinInput.value.length > 0) {
-    pinInput.style.borderColor = 'rgba(122,138,32,0.5)';
-    pinInput.title = 'Mot de passe conforme';
+    passwordInput.style.borderColor = 'rgba(192,57,43,0.5)';
+    passwordInput.title = errors.join(' · ');
+  } else if (passwordInput.value.length > 0) {
+    passwordInput.style.borderColor = 'rgba(122,138,32,0.5)';
+    passwordInput.title = 'Mot de passe conforme';
   } else {
-    pinInput.style.borderColor = '';
-    pinInput.title = '';
+    passwordInput.style.borderColor = '';
+    passwordInput.title = '';
   }
-});
-
-adminLoginForm.addEventListener('submit', async (e) => {
-  e.preventDefault();
-  try {
-    const r = await fetch('/api/admin/login', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ user: adminUser.value.trim(), pass: adminPass.value })
-    });
-    const d = await r.json();
-    if (!r.ok) throw new Error(d.error || 'invalid');
-    adminToken = d.token;
-    sessionStorage.setItem('hashi_admin_token', adminToken);
-    await adminFetchProfiles();
-    loginModal.classList.add('hidden');
-    statusLabel.textContent = 'Admin · Actif';
-  } catch { alert('Admin login invalide'); }
 });
 
 loginModal.addEventListener('click', (e) => {

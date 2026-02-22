@@ -187,16 +187,11 @@
       <div class="login-title">Connexion Impériale</div>
       <p class="login-subtitle">Identifiez-vous pour accéder à l'interface Susanoo.</p>
       <form id="loginForm" class="login-form">
-        <input id="profileInput" type="text" placeholder="Profil (ex: raphael)" required class="login-input">
-        <input id="pinInput" type="password" placeholder="PIN" required class="login-input">
-        <button type="submit" class="login-submit">Entrer</button>
+        <input id="identifierInput" type="text" placeholder="Identifiant" required class="login-input" autocomplete="username">
+        <input id="passwordInput" type="password" placeholder="Mot de passe" required class="login-input" autocomplete="current-password">
+        <button type="submit" class="login-submit">Connexion</button>
       </form>
-      <div class="login-divider"></div>
-      <form id="adminLoginForm" class="login-form">
-        <input id="adminUser" type="text" placeholder="Admin user" class="login-input">
-        <input id="adminPass" type="password" placeholder="Admin password" class="login-input">
-        <button type="submit" class="login-submit admin">Connexion admin</button>
-      </form>
+      <p class="login-hint">Utilisez votre profil ou vos identifiants administrateur.</p>
       <div id="adminPanel" class="admin-panel" style="display:none">
         <strong class="admin-title">Profils</strong>
         <pre id="adminProfiles" class="admin-profiles"></pre>
