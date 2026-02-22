@@ -475,27 +475,26 @@ function renderStatusWidget() {
   const sessionPct = sessionExpiresAt ? ((remaining / (24*3600000)) * 100) : 0;
 
   // Hashirama status data (real or placeholder)
-  let tokensUsedStr = '...';
-  let tokensLimitStr = '...';
-  let tokensPercent = 0;
-  let planStr = 'Chargement...';
+  let claudeVersion = 'Chargement...';
+  let claudeService = 'Claude Code';
 
-  if (hashiramaStatus && !hashiramaStatus.error) {
-    tokensUsedStr = (hashiramaStatus.tokensUsed / 1000).toFixed(0) + 'k';
-    tokensLimitStr = (hashiramaStatus.tokensLimit / 1000000).toFixed(0) + 'M';
-    tokensPercent = hashiramaStatus.percentageUsed || 0;
-    planStr = hashiramaStatus.plan || 'Unknown';
+  if (hashiramaStatus && hashiramaStatus.connected) {
+    claudeVersion = hashiramaStatus.version || 'Unknown';
+    claudeService = hashiramaStatus.service || 'Claude Code';
+  } else if (hashiramaStatus && hashiramaStatus.error) {
+    claudeVersion = 'Déconnecté';
+    claudeService = 'Erreur';
   }
 
   statusBody.innerHTML =
-    usageBarHtml('Tokens Hashirama', tokensUsedStr, tokensLimitStr, tokensPercent, tokensPercent > 80 ? 'var(--danger)' : 'var(--gold)') +
     usageBarHtml('Contexte session', tokenCount.toLocaleString('fr-FR'), '200k', (tokenCount/200000)*100) +
     usageBarHtml('Session TTL', formatRemaining(remaining), '24h', sessionPct, remaining < 7200000 ? 'var(--danger)' : 'var(--gold)') +
     '<div class="gold-divider"></div>' +
     statRowHtml('Modèle actif', MODELS.find(m => m.id === selectedModel)?.name || selectedModel) +
     statRowHtml('Rôle', role.toUpperCase(), role === 'admin' ? 'success' : '') +
-    statRowHtml('Plan Hashirama', planStr) +
-    (!hashiramaStatus ? '<button class="modify-btn" id="loadHashiramaBtn" style="margin-top:8px;font-size:9px;padding:4px 0;">Charger consommation</button>' : '');
+    statRowHtml('Service IA', claudeService) +
+    statRowHtml('Version', claudeVersion) +
+    (!hashiramaStatus ? '<button class="modify-btn" id="loadHashiramaBtn" style="margin-top:8px;font-size:9px;padding:4px 0;">Charger statut</button>' : '');
 
   // Add event listener for load button
   $('#loadHashiramaBtn')?.addEventListener('click', loadHashiramaStatus);
@@ -983,7 +982,7 @@ async function loadHashiramaStatus() {
 
     const data = await r.json();
     hashiramaStatus = data.status;
-    updateHashiramaConnectionStatus(!data.status.error);
+    updateHashiramaConnectionStatus(!data.status.connected);
     renderRightPanel();
   } catch (e) {
     console.error('Failed to load Hashirama status:', e);
@@ -1010,7 +1009,7 @@ function checkHashiramaConnection() {
 
   fetch('/api/hashirama/status', { headers: { Authorization: `Bearer ${token}` } })
     .then(r => r.ok ? r.json() : Promise.reject())
-    .then(data => updateHashiramaConnectionStatus(!data.status.error))
+    .then(data => updateHashiramaConnectionStatus(!data.status.connected))
     .catch(() => updateHashiramaConnectionStatus(false));
 }
 

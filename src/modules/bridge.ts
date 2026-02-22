@@ -12,51 +12,39 @@ interface ChatOptions {
 
 export function getHashiramaStatus(): any {
   try {
-    const cmd = `docker exec hashirama hashirama status`;
-    const output = execSync(cmd, {
+    // Check if dev-workspace container is running
+    const containerStatus = execSync('docker ps --filter name=dev-workspace --format "{{.Status}}"', {
       encoding: 'utf8',
-      timeout: 10000,
-      maxBuffer: 1024 * 1024,
-    });
+      timeout: 5000,
+    }).trim();
 
-    // Parse the status output to extract token usage info
-    const lines = output.trim().split('\n');
-    const status: any = {
-      tokensUsed: 0,
-      tokensLimit: 0,
-      percentageUsed: 0,
-      plan: 'unknown',
-    };
-
-    for (const line of lines) {
-      // Look for token usage info in the output
-      if (line.includes('Tokens') || line.includes('tokens')) {
-        const match = line.match(/(\d+(?:,\d+)*)\s*\/\s*(\d+(?:,\d+)*)/);
-        if (match) {
-          status.tokensUsed = parseInt(match[1].replace(/,/g, ''));
-          status.tokensLimit = parseInt(match[2].replace(/,/g, ''));
-          status.percentageUsed = (status.tokensUsed / status.tokensLimit) * 100;
-        }
-      }
-      if (line.toLowerCase().includes('plan') || line.toLowerCase().includes('abonnement')) {
-        status.plan = line.split(':')[1]?.trim() || 'unknown';
-      }
+    if (!containerStatus) {
+      throw new Error('Container not running');
     }
 
-    return status;
+    // Get Claude Code version
+    const version = execSync('docker exec dev-workspace zsh -c "claude --version 2>&1"', {
+      encoding: 'utf8',
+      timeout: 5000,
+    }).trim();
+
+    return {
+      connected: true,
+      containerStatus,
+      version,
+      service: 'Claude Code',
+    };
   } catch (e) {
     log('error', 'status_error', { error: (e as Error).message });
     return {
-      tokensUsed: 0,
-      tokensLimit: 0,
-      percentageUsed: 0,
-      plan: 'error',
+      connected: false,
       error: true,
+      message: (e as Error).message,
     };
   }
 }
 
-export function sendToHashirama(message: string, profile: string, options: ChatOptions): string {
+export function sendToHashirama(message: string, _profile: string, options: ChatOptions): string {
   try {
     // Enrichir le message avec les métadonnées de contexte
     let enrichedMessage = message;
@@ -78,10 +66,13 @@ export function sendToHashirama(message: string, profile: string, options: ChatO
       enrichedMessage = '[Mode : Recherche approfondie activée]\n' + enrichedMessage;
     }
 
-    const cmd = `docker exec hashirama hashirama chat --profile "${profile.replace(/"/g, '\\"')}" "${enrichedMessage.replace(/"/g, '\\"')}"`;
+    // Escape single quotes for shell
+    const escapedMessage = enrichedMessage.replace(/'/g, "'\\''");
+
+    const cmd = `docker exec dev-workspace zsh -c 'claude -p "${escapedMessage}"'`;
     const output = execSync(cmd, {
       encoding: 'utf8',
-      timeout: 60000,
+      timeout: 120000, // 2 minutes timeout for Claude responses
       maxBuffer: 10 * 1024 * 1024,
     });
     return output.trim();
