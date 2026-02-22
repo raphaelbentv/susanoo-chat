@@ -1020,10 +1020,23 @@ function toggleSidebar() { if (sidebarOpen) closeSidebar(); else openSidebar(); 
 function setViewport(vp) {
   viewport = vp;
   app.className = `app viewport-${vp}`;
-  $$('.vp-btn').forEach(b => b.classList.toggle('active', b.dataset.vp === vp));
   if (vp === 'desktop') { openSidebar(); sidebarOverlay.classList.remove('visible'); }
   else closeSidebar();
   if (sendBtn) sendBtn.textContent = vp === 'mobile' ? '↑' : 'Envoyer';
+}
+
+function detectViewport() {
+  const width = window.innerWidth;
+  if (width >= 1024) return 'desktop';
+  if (width >= 768) return 'tablet';
+  return 'mobile';
+}
+
+function updateViewportAuto() {
+  const newViewport = detectViewport();
+  if (newViewport !== viewport) {
+    setViewport(newViewport);
+  }
 }
 
 // ══════════════════════════════════════════════════════════
@@ -2181,9 +2194,8 @@ async function createAdminBackup() {
 
 (window as any).createAdminBackup = createAdminBackup;
 
-$$('.vp-btn').forEach(btn => {
-  btn.addEventListener('click', () => setViewport(btn.dataset.vp));
-});
+// Auto-detect viewport on resize
+window.addEventListener('resize', updateViewportAuto);
 
 // ══════════════════════════════════════════════════════════
 // INIT
@@ -2191,6 +2203,9 @@ $$('.vp-btn').forEach(btn => {
 async function init() {
   // Initialize theme from localStorage first (instant)
   await applyTheme(currentTheme);
+
+  // Auto-detect and set initial viewport
+  setViewport(detectViewport());
 
   updateSessionMarker();
   renderConversations();
