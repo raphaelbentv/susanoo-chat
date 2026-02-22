@@ -319,8 +319,8 @@ function renderRightPanel() {
         <div class="vps-card"><span class="vps-card-val">41%</span><span class="vps-card-label">RAM</span></div>
         <div class="vps-card"><span class="vps-card-val ok">14d</span><span class="vps-card-label">Uptime</span></div>
       </div>
-      ${statRowHtml('IP', '87.106.22.224')}
-      ${statRowHtml('Port API', ':3000')}
+      ${statRowHtml('IP', '••••••••')}
+      ${statRowHtml('Port API', ':••••')}
       ${statRowHtml('SSL', 'Valide ✓', 'success')}
       ${statRowHtml('Traefik', 'Actif', 'success')}`;
   }

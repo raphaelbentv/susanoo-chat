@@ -31,7 +31,7 @@ const WINDOW_MS = Number(process.env.LOGIN_WINDOW_MS || 15 * 60 * 1000);
 const BLOCK_MS = Number(process.env.LOGIN_BLOCK_MS || 15 * 60 * 1000);
 
 // Backup
-const BACKUP_PASSPHRASE = process.env.BACKUP_PASSPHRASE || 'susanoo-default-change-me';
+const BACKUP_PASSPHRASE = process.env.BACKUP_PASSPHRASE || crypto.randomBytes(32).toString('hex');
 const BACKUP_INTERVAL_MS = Number(process.env.BACKUP_INTERVAL_MS || 6 * 60 * 60 * 1000);
 const BACKUP_MAX_COUNT = Number(process.env.BACKUP_MAX_COUNT || 10);
 
