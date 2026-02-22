@@ -43,6 +43,11 @@ const artifactName = $('#artifactName');
 const artifactCopy = $('#artifactCopy');
 const artifactDownload = $('#artifactDownload');
 const artifactClose = $('#artifactClose');
+const adminDashboard = $('#adminDashboard');
+const adminDashboardClose = $('#adminDashboardClose');
+const adminTabUsers = $('#adminTabUsers');
+const adminTabAudit = $('#adminTabAudit');
+const adminTabBackups = $('#adminTabBackups');
 
 // ── STATE ───────────────────────────────────────────────────
 let viewport         = 'desktop';
@@ -79,6 +84,8 @@ let notificationId   = 0;
 let hashiramaStatus  = null;
 let claudeEnabled = false;
 let currentArtifact = null; // { type: 'html'|'svg'|'react', code: string, title: string }
+let adminUsers = []; // Liste des utilisateurs pour l'admin
+let adminAuditLog = []; // Logs d'audit pour l'admin
 
 const ALL_TAGS = ["Venio","Creatio","Arrow","Kuro","MBWAY","EMA","Absys","Bangkok","Instagram","VPS"];
 
@@ -1429,16 +1436,191 @@ async function sendMessage() {
   console.log('[DEBUG] sendMessage completed');
 }
 
-// ── ADMIN ───────────────────────────────────────────────────
+// ── ADMIN DASHBOARD ─────────────────────────────────────────
 async function adminFetchProfiles() {
   const r = await fetch('/api/admin/profiles', { headers: { Authorization: `Bearer ${adminToken}` } });
   const d = await r.json();
   if (!r.ok) throw new Error('admin_fail');
+
+  // Old simple display (kept for backward compatibility)
   adminPanel.style.display = 'block';
   adminProfiles.textContent = (d.items || []).map(p =>
     `${p.disabled?'[DISABLED] ':''}${p.name} | rôle=${p.role} | msgs=${p.messages} | login=${p.lastLogin||'jamais'}${p.pinExpired?' | ⚠ PIN EXPIRÉ':''}`
   ).join('\n') || 'Aucun profil';
+
+  // New dashboard
+  adminUsers = d.items || [];
+  showAdminDashboard();
 }
+
+function showAdminDashboard() {
+  adminDashboard.classList.remove('hidden');
+  renderAdminUsers();
+}
+
+function hideAdminDashboard() {
+  adminDashboard.classList.add('hidden');
+}
+
+function renderAdminUsers() {
+  adminTabUsers.innerHTML = `
+    <div class="admin-user-grid">
+      ${adminUsers.map(user => `
+        <div class="admin-user-card" data-user="${user.name}">
+          <div class="admin-user-info">
+            <div class="admin-user-name">
+              ${user.name}
+              ${user.disabled ? '<span class="admin-badge disabled">Désactivé</span>' : ''}
+              ${user.pinExpired ? '<span class="admin-badge expired">PIN expiré</span>' : ''}
+            </div>
+            <div class="admin-user-meta">
+              <span>Rôle: <strong>${user.role}</strong></span>
+              <span>Messages: <strong>${user.messages}</strong></span>
+              <span>Dernière connexion: <strong>${user.lastLogin ? new Date(user.lastLogin).toLocaleString('fr-FR') : 'Jamais'}</strong></span>
+              <span>Créé: <strong>${user.createdAt ? new Date(user.createdAt).toLocaleDateString('fr-FR') : 'N/A'}</strong></span>
+            </div>
+          </div>
+          <div class="admin-user-actions">
+            <button class="admin-action-btn" onclick="adminChangeRole('${user.name}', '${user.role}')">🔧 Rôle</button>
+            <button class="admin-action-btn" onclick="adminResetPin('${user.name}')">🔑 Reset PIN</button>
+            <button class="admin-action-btn" onclick="adminToggleDisable('${user.name}', ${user.disabled})">${user.disabled ? '✓ Activer' : '⊗ Désactiver'}</button>
+            <button class="admin-action-btn danger" onclick="adminDeleteUser('${user.name}')">🗑 Supprimer</button>
+          </div>
+        </div>
+      `).join('')}
+    </div>
+  `;
+}
+
+async function adminChangeRole(username: string, currentRole: string) {
+  const roles = ['readonly', 'user', 'manager', 'admin'];
+  const newRole = prompt(`Changer le rôle de ${username}\nRôle actuel: ${currentRole}\n\nNouveau rôle (readonly/user/manager/admin):`, currentRole);
+
+  if (!newRole || !roles.includes(newRole)) {
+    alert('Rôle invalide');
+    return;
+  }
+
+  try {
+    const r = await fetch('/api/admin/change-role', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${adminToken}`
+      },
+      body: JSON.stringify({ profile: username, role: newRole })
+    });
+
+    const d = await r.json();
+    if (r.ok) {
+      alert(`Rôle de ${username} changé en ${newRole}`);
+      await reloadAdminUsers();
+    } else {
+      alert(`Erreur: ${d.error || 'Échec du changement de rôle'}`);
+    }
+  } catch (e) {
+    alert('Erreur réseau');
+  }
+}
+
+async function adminResetPin(username: string) {
+  const newPin = prompt(`Réinitialiser le PIN de ${username}\n\nNouveau PIN (min. 8 caractères, majuscule, minuscule, chiffre):`);
+
+  if (!newPin) return;
+
+  try {
+    const r = await fetch('/api/admin/reset-pin', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${adminToken}`
+      },
+      body: JSON.stringify({ profile: username, newPin })
+    });
+
+    const d = await r.json();
+    if (r.ok) {
+      alert(`PIN de ${username} réinitialisé avec succès`);
+      await reloadAdminUsers();
+    } else {
+      alert(`Erreur: ${d.error || 'Échec de la réinitialisation'}`);
+    }
+  } catch (e) {
+    alert('Erreur réseau');
+  }
+}
+
+async function adminToggleDisable(username: string, currentlyDisabled: boolean) {
+  const action = currentlyDisabled ? 'activer' : 'désactiver';
+  if (!confirm(`Voulez-vous ${action} le compte de ${username} ?`)) return;
+
+  try {
+    const r = await fetch('/api/admin/disable-profile', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${adminToken}`
+      },
+      body: JSON.stringify({ profile: username, disabled: !currentlyDisabled })
+    });
+
+    const d = await r.json();
+    if (r.ok) {
+      alert(`Compte ${username} ${currentlyDisabled ? 'activé' : 'désactivé'}`);
+      await reloadAdminUsers();
+    } else {
+      alert(`Erreur: ${d.error || 'Échec'}`);
+    }
+  } catch (e) {
+    alert('Erreur réseau');
+  }
+}
+
+async function adminDeleteUser(username: string) {
+  if (!confirm(`⚠️ ATTENTION ⚠️\n\nVoulez-vous vraiment SUPPRIMER définitivement le compte de ${username} ?\n\nCette action est IRRÉVERSIBLE.`)) return;
+
+  const confirmation = prompt(`Pour confirmer, tapez le nom d'utilisateur: ${username}`);
+  if (confirmation !== username) {
+    alert('Suppression annulée');
+    return;
+  }
+
+  try {
+    const r = await fetch('/api/admin/delete-profile', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${adminToken}`
+      },
+      body: JSON.stringify({ profile: username })
+    });
+
+    const d = await r.json();
+    if (r.ok) {
+      alert(`Compte ${username} supprimé définitivement`);
+      await reloadAdminUsers();
+    } else {
+      alert(`Erreur: ${d.error || 'Échec de la suppression'}`);
+    }
+  } catch (e) {
+    alert('Erreur réseau');
+  }
+}
+
+async function reloadAdminUsers() {
+  const r = await fetch('/api/admin/profiles', { headers: { Authorization: `Bearer ${adminToken}` } });
+  const d = await r.json();
+  if (r.ok) {
+    adminUsers = d.items || [];
+    renderAdminUsers();
+  }
+}
+
+// Expose functions to window for onclick handlers
+(window as any).adminChangeRole = adminChangeRole;
+(window as any).adminResetPin = adminResetPin;
+(window as any).adminToggleDisable = adminToggleDisable;
+(window as any).adminDeleteUser = adminDeleteUser;
 
 // ── SESSION MARKER ──────────────────────────────────────────
 function updateSessionMarker() {
@@ -1851,6 +2033,109 @@ claudeToggleInput?.addEventListener('change', async () => {
 artifactClose?.addEventListener('click', hideArtifact);
 artifactCopy?.addEventListener('click', copyArtifactCode);
 artifactDownload?.addEventListener('click', downloadArtifact);
+
+// Admin dashboard event listeners
+adminDashboardClose?.addEventListener('click', hideAdminDashboard);
+
+// Admin tabs switching
+$$('.admin-tab').forEach(tab => {
+  tab.addEventListener('click', () => {
+    const targetTab = tab.dataset.tab;
+
+    // Update tab active state
+    $$('.admin-tab').forEach(t => t.classList.remove('active'));
+    tab.classList.add('active');
+
+    // Update content visibility
+    $$('.admin-tab-content').forEach(c => c.classList.remove('active'));
+
+    if (targetTab === 'users') {
+      adminTabUsers.classList.add('active');
+    } else if (targetTab === 'audit') {
+      adminTabAudit.classList.add('active');
+      loadAdminAuditLog();
+    } else if (targetTab === 'backups') {
+      adminTabBackups.classList.add('active');
+      loadAdminBackups();
+    }
+  });
+});
+
+async function loadAdminAuditLog() {
+  try {
+    const r = await fetch('/api/admin/audit', {
+      headers: { Authorization: `Bearer ${adminToken}` }
+    });
+    const d = await r.json();
+    if (r.ok) {
+      adminTabAudit.innerHTML = `
+        <div style="font-family:var(--font-mono);font-size:9px;line-height:1.6;">
+          ${(d.logs || []).slice(0, 100).map(log =>
+            `<div style="padding:4px 0;border-bottom:1px solid var(--border-dim);">
+              <span style="color:var(--gold);">${new Date(log.ts).toLocaleString('fr-FR')}</span>
+              <span style="color:var(--text-dim);margin:0 8px;">│</span>
+              <span style="color:var(--text);">${log.event}</span>
+              ${log.profile ? `<span style="color:var(--text-faint);margin-left:8px;">${log.profile}</span>` : ''}
+            </div>`
+          ).join('')}
+        </div>
+      `;
+    }
+  } catch (e) {
+    adminTabAudit.innerHTML = '<div style="color:var(--error);">Erreur lors du chargement des logs</div>';
+  }
+}
+
+async function loadAdminBackups() {
+  try {
+    const r = await fetch('/api/admin/backups', {
+      headers: { Authorization: `Bearer ${adminToken}` }
+    });
+    const d = await r.json();
+    if (r.ok) {
+      adminTabBackups.innerHTML = `
+        <div style="margin-bottom:16px;">
+          <button class="admin-action-btn" onclick="createAdminBackup()">💾 Créer un backup</button>
+        </div>
+        <div class="admin-user-grid">
+          ${(d.backups || []).map(backup => `
+            <div class="admin-user-card">
+              <div class="admin-user-info">
+                <div class="admin-user-name">${backup.name}</div>
+                <div class="admin-user-meta">
+                  <span>Taille: <strong>${(backup.size / 1024).toFixed(2)} KB</strong></span>
+                  <span>Créé: <strong>${new Date(backup.created).toLocaleString('fr-FR')}</strong></span>
+                </div>
+              </div>
+            </div>
+          `).join('')}
+        </div>
+      `;
+    }
+  } catch (e) {
+    adminTabBackups.innerHTML = '<div style="color:var(--error);">Erreur lors du chargement des backups</div>';
+  }
+}
+
+async function createAdminBackup() {
+  try {
+    const r = await fetch('/api/admin/backup/create', {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${adminToken}` }
+    });
+    const d = await r.json();
+    if (r.ok) {
+      alert('Backup créé avec succès');
+      loadAdminBackups();
+    } else {
+      alert(`Erreur: ${d.error || 'Échec'}`);
+    }
+  } catch (e) {
+    alert('Erreur réseau');
+  }
+}
+
+(window as any).createAdminBackup = createAdminBackup;
 
 $$('.vp-btn').forEach(btn => {
   btn.addEventListener('click', () => setViewport(btn.dataset.vp));

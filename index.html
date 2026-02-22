@@ -259,6 +259,28 @@
     </div>
   </div>
 
+  <!-- ═══ ADMIN DASHBOARD MODAL ═══ -->
+  <div id="adminDashboard" class="login-modal hidden">
+    <div class="admin-dashboard-card">
+      <div class="admin-dashboard-header">
+        <div class="admin-dashboard-title">⚡ Panneau Administrateur</div>
+        <button class="admin-close-btn" id="adminDashboardClose">✕</button>
+      </div>
+      <div class="admin-dashboard-body">
+        <div class="admin-tabs">
+          <button class="admin-tab active" data-tab="users">👥 Utilisateurs</button>
+          <button class="admin-tab" data-tab="audit">📋 Audit</button>
+          <button class="admin-tab" data-tab="backups">💾 Backups</button>
+        </div>
+        <div class="admin-content">
+          <div id="adminTabUsers" class="admin-tab-content active"></div>
+          <div id="adminTabAudit" class="admin-tab-content hidden"></div>
+          <div id="adminTabBackups" class="admin-tab-content hidden"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <!-- ═══ VIEWPORT SWITCHER ═══ -->
   <div class="viewport-switcher">
     <button class="vp-btn active" data-vp="desktop">🖥 Desktop</button>
