@@ -1328,10 +1328,15 @@ async function login(identifier, password) {
   }
 
   // Show admin section if user is admin
+  console.log('[DEBUG] isAdmin value:', isAdmin);
   if (isAdmin) {
+    console.log('[DEBUG] Showing admin section...');
     showAdminSection();
+    console.log('[DEBUG] Loading admin data...');
     await loadAdminData();
+    console.log('[DEBUG] Rendering admin panel...');
     renderAdminPanel();
+    console.log('[DEBUG] Admin panel setup complete');
   }
 
   await loadHistory();
@@ -2119,8 +2124,13 @@ artifactDownload?.addEventListener('click', downloadArtifact);
 
 // Admin section visibility on login
 function showAdminSection() {
+  console.log('[DEBUG] showAdminSection called - isAdmin:', isAdmin, 'accAdminSection:', !!accAdminSection);
   if (isAdmin && accAdminSection) {
+    console.log('[DEBUG] Setting accAdminSection display to block');
     accAdminSection.style.display = 'block';
+    console.log('[DEBUG] accAdminSection.style.display:', accAdminSection.style.display);
+  } else {
+    console.log('[DEBUG] NOT showing admin section - isAdmin:', isAdmin, 'accAdminSection exists:', !!accAdminSection);
   }
 }
 
