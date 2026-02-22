@@ -1,9 +1,73 @@
 import type { Session, AdminSession, Role } from '../types/index.js';
 import { genToken } from './crypto.js';
 import { CONFIG } from '../config.js';
+import { readFileSync, writeFileSync, existsSync } from 'fs';
+import { join } from 'path';
 
 const SESSIONS = new Map<string, Session>();
 const ADMIN_SESSIONS = new Map<string, AdminSession>();
+const SESSIONS_FILE = join(CONFIG.DATA_DIR, 'sessions.json');
+
+interface SessionsStore {
+  sessions: Record<string, Session>;
+  adminSessions: Record<string, AdminSession>;
+}
+
+function saveSessions(): void {
+  try {
+    const store: SessionsStore = {
+      sessions: Object.fromEntries(SESSIONS),
+      adminSessions: Object.fromEntries(ADMIN_SESSIONS),
+    };
+    writeFileSync(SESSIONS_FILE, JSON.stringify(store, null, 2), 'utf8');
+  } catch (e) {
+    console.error('[ERROR] Failed to save sessions:', e);
+  }
+}
+
+export function loadSessions(): void {
+  try {
+    if (!existsSync(SESSIONS_FILE)) {
+      console.log('[INFO] No sessions file found, starting fresh');
+      return;
+    }
+
+    const data = readFileSync(SESSIONS_FILE, 'utf8');
+    const store: SessionsStore = JSON.parse(data);
+
+    const now = Date.now();
+    let loaded = 0;
+    let expired = 0;
+
+    // Load sessions and remove expired ones
+    for (const [token, session] of Object.entries(store.sessions || {})) {
+      if (now <= session.expiresAt) {
+        SESSIONS.set(token, session);
+        loaded++;
+      } else {
+        expired++;
+      }
+    }
+
+    for (const [token, session] of Object.entries(store.adminSessions || {})) {
+      if (now <= session.expiresAt) {
+        ADMIN_SESSIONS.set(token, session);
+        loaded++;
+      } else {
+        expired++;
+      }
+    }
+
+    console.log(`[INFO] Loaded ${loaded} session(s), cleaned ${expired} expired session(s)`);
+
+    // Save cleaned sessions
+    if (expired > 0) {
+      saveSessions();
+    }
+  } catch (e) {
+    console.error('[ERROR] Failed to load sessions:', e);
+  }
+}
 
 export function createSession(profileName: string, role: Role): string {
   const token = genToken();
@@ -14,6 +78,7 @@ export function createSession(profileName: string, role: Role): string {
     createdAt: now,
     expiresAt: now + CONFIG.SESSION_TTL_MS,
   });
+  saveSessions();
   return token;
 }
 
@@ -26,6 +91,7 @@ export function createAdminSession(user: string): string {
     createdAt: now,
     expiresAt: now + CONFIG.SESSION_TTL_MS,
   });
+  saveSessions();
   return token;
 }
 
@@ -36,6 +102,7 @@ export function getSession(authHeader?: string): Session | null {
   if (!session) return null;
   if (Date.now() > session.expiresAt) {
     SESSIONS.delete(token);
+    saveSessions();
     return null;
   }
   session._token = token;
@@ -49,6 +116,7 @@ export function getAdminSession(authHeader?: string): AdminSession | null {
   if (!session) return null;
   if (Date.now() > session.expiresAt) {
     ADMIN_SESSIONS.delete(token);
+    saveSessions();
     return null;
   }
   session._token = token;
@@ -58,7 +126,10 @@ export function getAdminSession(authHeader?: string): AdminSession | null {
 export function refreshSession(oldToken: string): { token: string; expiresAt: number; profile: string; role: Role } | null {
   const session = SESSIONS.get(oldToken);
   if (!session || Date.now() > session.expiresAt) {
-    if (session) SESSIONS.delete(oldToken);
+    if (session) {
+      SESSIONS.delete(oldToken);
+      saveSessions();
+    }
     return null;
   }
   SESSIONS.delete(oldToken);
@@ -71,6 +142,7 @@ export function refreshSession(oldToken: string): { token: string; expiresAt: nu
     createdAt: now,
     expiresAt,
   });
+  saveSessions();
   return { token: newToken, expiresAt, profile: session.profile, role: session.role };
 }
 
@@ -88,6 +160,9 @@ export function cleanExpiredSessions(): number {
       ADMIN_SESSIONS.delete(token);
       cleaned++;
     }
+  }
+  if (cleaned > 0) {
+    saveSessions();
   }
   return cleaned;
 }

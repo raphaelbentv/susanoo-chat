@@ -5,7 +5,7 @@ import { fileURLToPath } from 'url';
 import { CONFIG } from './config.js';
 import { send, parseUrl, getMimeType } from './utils/http.js';
 import { log } from './utils/logger.js';
-import { cleanExpiredSessions } from './modules/session.js';
+import { cleanExpiredSessions, loadSessions } from './modules/session.js';
 import { createBackup } from './modules/backup.js';
 
 // Routes
@@ -259,6 +259,10 @@ const server = http.createServer(async (req, res) => {
 // ══════════════════════════════════════════════════════════
 // START
 // ══════════════════════════════════════════════════════════
+
+// Load persisted sessions before starting server
+loadSessions();
+
 server.listen(CONFIG.PORT, () => {
   log('info', 'server_started', { port: CONFIG.PORT, version: CONFIG.VERSION });
   console.log(`✓ Hashirama Chat v${CONFIG.VERSION} (TypeScript)`);
