@@ -35,6 +35,8 @@ const optionsModal   = $('#optionsModal');
 const closeOptions   = $('#closeOptions');
 const optionsModalContent = $('#optionsModalContent');
 const hashiramaConnectionDot = $('#hashiramaConnectionDot');
+const claudeToggle = $('#claudeToggle');
+const claudeToggleInput = $('#claudeToggleInput') as HTMLInputElement;
 
 // ── STATE ───────────────────────────────────────────────────
 let viewport         = 'desktop';
@@ -69,6 +71,7 @@ let statsLoaded      = false;
 let notifications    = [];
 let notificationId   = 0;
 let hashiramaStatus  = null;
+let claudeEnabled = false;
 
 const ALL_TAGS = ["Venio","Creatio","Arrow","Kuro","MBWAY","EMA","Absys","Bangkok","Instagram","VPS"];
 
@@ -1084,6 +1087,11 @@ async function login(identifier, password) {
   startSessionTimer();
   updateSessionDisplay();
 
+  // Show Claude toggle for regular users
+  if (claudeToggle) {
+    claudeToggle.style.display = 'flex';
+  }
+
   if (d.pinExpired) {
     setTimeout(() => alert('Votre mot de passe a expiré. Veuillez le changer.'), 500);
   }
@@ -1598,6 +1606,29 @@ closeOptions?.addEventListener('click', () => {
 
 optionsModal?.addEventListener('click', (e) => {
   if (e.target === optionsModal) optionsModal.classList.add('hidden');
+});
+
+// Claude Toggle
+claudeToggleInput?.addEventListener('change', async () => {
+  claudeEnabled = claudeToggleInput.checked;
+  console.log('[Claude Toggle] Enabled:', claudeEnabled);
+
+  if (claudeEnabled) {
+    // Force connection to Claude Code
+    console.log('[Claude Toggle] Connecting to Claude Code...');
+    await loadHashiramaStatus();
+
+    // If not connected after load, show error
+    if (!hashiramaStatus || !hashiramaStatus.connected) {
+      alert('Impossible de se connecter à Claude Code. Vérifiez que le conteneur est actif.');
+      claudeToggleInput.checked = false;
+      claudeEnabled = false;
+    } else {
+      console.log('[Claude Toggle] Connected successfully!');
+    }
+  } else {
+    console.log('[Claude Toggle] Claude disabled');
+  }
 });
 
 $$('.vp-btn').forEach(btn => {
