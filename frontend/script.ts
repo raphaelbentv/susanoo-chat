@@ -1309,7 +1309,7 @@ async function login(identifier, password) {
   console.log('[DEBUG] Login successful - showing Claude toggle');
   console.log('[DEBUG] claudeToggle element:', claudeToggle);
   if (claudeToggle) {
-    claudeToggle.style.display = 'flex';
+    claudeToggle.classList.remove("hidden");
     console.log('[DEBUG] Claude toggle display set to flex');
   } else {
     console.error('[DEBUG] claudeToggle element not found!');
