@@ -16,6 +16,7 @@ import {
   handleSessionInfo,
   handleSessionRefresh,
   handleChangePin,
+  handleUpdatePreferences,
 } from './routes/profile.js';
 import {
   handleAdminLogin,
@@ -137,6 +138,10 @@ const server = http.createServer(async (req, res) => {
 
     if (req.method === 'POST' && pathname === '/api/profile/change-pin') {
       return handleChangePin(req, res);
+    }
+
+    if (req.method === 'POST' && pathname === '/api/preferences') {
+      return handleUpdatePreferences(req, res);
     }
 
     if (req.method === 'GET' && pathname === '/api/history') {

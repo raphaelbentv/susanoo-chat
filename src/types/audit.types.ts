@@ -13,7 +13,8 @@ export type AuditEvent =
   | 'pin_reset'
   | 'memory_cleared'
   | 'backup_created'
-  | 'admin_profiles_list';
+  | 'admin_profiles_list'
+  | 'preferences_updated';
 
 export interface AuditEntry {
   ts: string;

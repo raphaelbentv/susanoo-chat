@@ -9,7 +9,12 @@ import { validatePin, isPinExpired } from '../modules/auth.js';
 import { hasPermission } from '../modules/rbac.js';
 import { log } from '../utils/logger.js';
 import { CONFIG } from '../config.js';
-import type { LoginRequest, ChangePinRequest } from '../types/index.js';
+import type { LoginRequest, ChangePinRequest, ThemeId } from '../types/index.js';
+
+interface UpdatePreferencesRequest {
+  theme?: ThemeId;
+  fontSize?: 'small' | 'medium' | 'large';
+}
 
 export async function handleProfileLogin(req: IncomingMessage, res: ServerResponse): Promise<void> {
   try {
@@ -104,12 +109,17 @@ export async function handleSessionInfo(req: IncomingMessage, res: ServerRespons
     return json(res, 401, { error: 'unauthorized' });
   }
 
+  const db = dbRead();
+  const profile = db.profiles[session.profile];
+  const preferences = profile?.preferences || { theme: 'emperor' };
+
   return json(res, 200, {
     profile: session.profile,
     role: session.role,
     createdAt: session.createdAt,
     expiresAt: session.expiresAt,
     ttlMs: Math.max(0, session.expiresAt - Date.now()),
+    preferences,
   });
 }
 
@@ -171,5 +181,53 @@ export async function handleChangePin(req: IncomingMessage, res: ServerResponse)
   } catch (e) {
     log('error', 'pin_change_failed', { error: (e as Error).message });
     return json(res, 500, { error: 'pin_change_failed' });
+  }
+}
+
+export async function handleUpdatePreferences(req: IncomingMessage, res: ServerResponse): Promise<void> {
+  const session = getSession(req.headers.authorization);
+  if (!session) {
+    return json(res, 401, { error: 'unauthorized' });
+  }
+
+  try {
+    const bodyStr = await parseBody(req);
+    const data = JSON.parse(bodyStr || '{}') as UpdatePreferencesRequest;
+
+    const db = dbRead();
+    const profile = db.profiles[session.profile];
+
+    if (!profile) {
+      return json(res, 404, { error: 'profile_not_found' });
+    }
+
+    // Initialize preferences if they don't exist
+    if (!profile.preferences) {
+      profile.preferences = { theme: 'emperor' };
+    }
+
+    // Update preferences
+    if (data.theme) {
+      const validThemes: ThemeId[] = ['obsidian', 'cyber', 'emperor', 'ghost', 'storm', 'brutal'];
+      if (!validThemes.includes(data.theme)) {
+        return json(res, 400, { error: 'invalid_theme' });
+      }
+      profile.preferences.theme = data.theme;
+    }
+
+    if (data.fontSize) {
+      profile.preferences.fontSize = data.fontSize;
+    }
+
+    dbWrite(db);
+    audit('preferences_updated', { profile: session.profile, theme: profile.preferences.theme });
+
+    return json(res, 200, {
+      ok: true,
+      preferences: profile.preferences,
+    });
+  } catch (e) {
+    log('error', 'preferences_update_failed', { error: (e as Error).message });
+    return json(res, 500, { error: 'preferences_update_failed' });
   }
 }

@@ -81,6 +81,9 @@ export async function handleUnifiedLogin(req: IncomingMessage, res: ServerRespon
         createdAt: now,
         pinChangedAt: now,
         disabled: false,
+        preferences: {
+          theme: 'emperor', // Default theme
+        },
       };
       db.memory[identifier] = [];
       dbWrite(db);
@@ -95,6 +98,7 @@ export async function handleUnifiedLogin(req: IncomingMessage, res: ServerRespon
         type: 'profile',
         expiresAt: Date.now() + CONFIG.SESSION_TTL_MS,
         created: true,
+        preferences: { theme: 'emperor' },
       });
     }
 
@@ -114,6 +118,12 @@ export async function handleUnifiedLogin(req: IncomingMessage, res: ServerRespon
 
     limiterReset(key);
     profile.lastLogin = new Date().toISOString();
+
+    // Ensure existing profiles have default preferences
+    if (!profile.preferences) {
+      profile.preferences = { theme: 'emperor' };
+    }
+
     dbWrite(db);
 
     const token = createSession(identifier, profile.role);
@@ -126,6 +136,7 @@ export async function handleUnifiedLogin(req: IncomingMessage, res: ServerRespon
       type: 'profile',
       expiresAt: Date.now() + CONFIG.SESSION_TTL_MS,
       pinExpired: isPinExpired(profile),
+      preferences: profile.preferences,
     });
   } catch (e) {
     log('error', 'unified_login_error', { error: (e as Error).message });
