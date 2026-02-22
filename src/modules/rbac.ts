@@ -1,10 +1,10 @@
 import type { Role, Permission } from '../types/index.js';
 
 const ROLE_LEVEL: Record<Role, number> = {
-  readonly: 0,
-  user: 1,
-  manager: 2,
-  admin: 3,
+  'readonly': 0,
+  'user': 1,
+  'manager': 2,
+  'admin': 3,
 };
 
 const PERMISSIONS: Record<Permission, Role> = {
@@ -25,7 +25,9 @@ const PERMISSIONS: Record<Permission, Role> = {
 export function hasPermission(userRole: Role, action: Permission): boolean {
   const minRole = PERMISSIONS[action];
   if (!minRole) return false;
-  return (ROLE_LEVEL[userRole] || 0) >= (ROLE_LEVEL[minRole] || 99);
+  const userLevel = ROLE_LEVEL[userRole] ?? 0;
+  const minLevel = ROLE_LEVEL[minRole] ?? 99;
+  return userLevel >= minLevel;
 }
 
 export function canManageRole(actorRole: Role, targetRole: Role): boolean {

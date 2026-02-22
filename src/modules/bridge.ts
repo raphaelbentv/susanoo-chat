@@ -1,5 +1,45 @@
 import { execSync } from 'child_process';
 import { log } from '../utils/logger.js';
+import { readFileSync } from 'fs';
+import { join } from 'path';
+
+// Load environment variables
+let useSSH = false;
+let sshAlias = 'vps';
+
+try {
+  const envPath = join(process.cwd(), '.env');
+  const envContent = readFileSync(envPath, 'utf8');
+  const envVars: Record<string, string> = {};
+
+  envContent.split('\n').forEach(line => {
+    const trimmed = line.trim();
+    if (trimmed && !trimmed.startsWith('#')) {
+      const [key, ...valueParts] = trimmed.split('=');
+      if (key && valueParts.length > 0) {
+        envVars[key.trim()] = valueParts.join('=').trim();
+      }
+    }
+  });
+
+  // Use SSH if NODE_ENV is development or if we can't access Docker directly
+  if (envVars.NODE_ENV === 'development' || envVars.USE_SSH === 'true') {
+    useSSH = true;
+    sshAlias = envVars.VPS_SSH_ALIAS || 'vps';
+  }
+} catch (e) {
+  // No .env file, assume production (direct Docker access)
+  useSSH = false;
+}
+
+function executeDockerCommand(cmd: string, timeout = 10000): string {
+  const fullCmd = useSSH ? `ssh ${sshAlias} "${cmd.replace(/"/g, '\\"')}"` : cmd;
+  return execSync(fullCmd, {
+    encoding: 'utf8',
+    timeout,
+    maxBuffer: 10 * 1024 * 1024,
+  }).trim();
+}
 
 interface ChatOptions {
   model: string;
@@ -13,26 +53,27 @@ interface ChatOptions {
 export function getHashiramaStatus(): any {
   try {
     // Check if dev-workspace container is running
-    const containerStatus = execSync('docker ps --filter name=dev-workspace --format "{{.Status}}"', {
-      encoding: 'utf8',
-      timeout: 5000,
-    }).trim();
+    const containerStatus = executeDockerCommand(
+      'docker ps --filter name=dev-workspace --format "{{.Status}}"',
+      5000
+    );
 
     if (!containerStatus) {
       throw new Error('Container not running');
     }
 
     // Get Claude Code version
-    const version = execSync('docker exec dev-workspace zsh -c "claude --version 2>&1"', {
-      encoding: 'utf8',
-      timeout: 5000,
-    }).trim();
+    const version = executeDockerCommand(
+      'docker exec dev-workspace zsh -c "claude --version 2>&1"',
+      5000
+    );
 
     return {
       connected: true,
       containerStatus,
       version,
       service: 'Claude Code',
+      mode: useSSH ? 'remote' : 'local',
     };
   } catch (e) {
     log('error', 'status_error', { error: (e as Error).message });
@@ -70,12 +111,8 @@ export function sendToHashirama(message: string, _profile: string, options: Chat
     const escapedMessage = enrichedMessage.replace(/'/g, "'\\''");
 
     const cmd = `docker exec dev-workspace zsh -c 'claude -p "${escapedMessage}"'`;
-    const output = execSync(cmd, {
-      encoding: 'utf8',
-      timeout: 120000, // 2 minutes timeout for Claude responses
-      maxBuffer: 10 * 1024 * 1024,
-    });
-    return output.trim();
+    const output = executeDockerCommand(cmd, 120000);
+    return output;
   } catch (e) {
     const error = e as Error & { stdout?: string; stderr?: string };
     log('error', 'bridge_error', {
