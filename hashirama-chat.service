@@ -9,8 +9,24 @@ ExecStartPre=/usr/bin/npm --prefix /workspace/hashirama-chat-susanoo run build
 ExecStart=/usr/bin/node /workspace/hashirama-chat-susanoo/dist/server.js
 Restart=always
 RestartSec=3
-User=root
+
+# Run as dedicated user (create with: useradd -r -s /usr/sbin/nologin hashirama)
+User=hashirama
+Group=docker
+
+# Environment
 Environment=PORT=8090
+EnvironmentFile=-/workspace/hashirama-chat-susanoo/.env
+
+# Security hardening
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/workspace/hashirama-chat-susanoo/data
+PrivateTmp=true
+ProtectKernelTunables=true
+ProtectControlGroups=true
+RestrictSUIDSGID=true
 
 [Install]
 WantedBy=multi-user.target

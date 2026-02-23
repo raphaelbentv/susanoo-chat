@@ -1,4 +1,4 @@
-import { execSync } from 'child_process';
+import { execFileSync, spawnSync } from 'child_process';
 import { log } from '../utils/logger.js';
 import { readFileSync } from 'fs';
 import { join } from 'path';
@@ -32,9 +32,32 @@ try {
   useSSH = false;
 }
 
-function executeDockerCommand(cmd: string, timeout = 30000): string {
-  const fullCmd = useSSH ? `ssh ${sshAlias} "${cmd.replace(/"/g, '\\"')}"` : cmd;
-  return execSync(fullCmd, {
+/**
+ * Execute a command safely using execFileSync (no shell interpolation).
+ * Arguments are passed as an array, preventing command injection.
+ */
+function executeCommand(args: string[], timeout = 30000): string {
+  if (useSSH) {
+    // SSH mode: pass the full command as a single SSH argument
+    const remoteCmd = args.join(' ');
+    const result = spawnSync('ssh', [sshAlias, remoteCmd], {
+      encoding: 'utf8',
+      timeout,
+      maxBuffer: 10 * 1024 * 1024,
+    });
+    if (result.error) throw result.error;
+    if (result.status !== 0) {
+      const err = new Error(`Command failed with exit code ${result.status}`) as Error & { stdout?: string; stderr?: string };
+      err.stdout = result.stdout;
+      err.stderr = result.stderr;
+      throw err;
+    }
+    return result.stdout.trim();
+  }
+
+  // Local mode: execute directly without shell
+  const [cmd, ...cmdArgs] = args;
+  return execFileSync(cmd, cmdArgs, {
     encoding: 'utf8',
     timeout,
     maxBuffer: 10 * 1024 * 1024,
@@ -53,8 +76,8 @@ interface ChatOptions {
 export function getHashiramaStatus(): any {
   try {
     // Check if dev-workspace container is running
-    const containerStatus = executeDockerCommand(
-      'docker ps --filter name=dev-workspace --format "{{.Status}}"',
+    const containerStatus = executeCommand(
+      ['docker', 'ps', '--filter', 'name=dev-workspace', '--format', '{{.Status}}'],
       5000
     );
 
@@ -63,8 +86,8 @@ export function getHashiramaStatus(): any {
     }
 
     // Get Claude Code version
-    const version = executeDockerCommand(
-      'docker exec dev-workspace zsh -c "claude --version 2>&1"',
+    const version = executeCommand(
+      ['docker', 'exec', 'dev-workspace', 'claude', '--version'],
       5000
     );
 
@@ -107,11 +130,11 @@ export function sendToHashirama(message: string, _profile: string, options: Chat
       enrichedMessage = '[Mode : Recherche approfondie activée]\n' + enrichedMessage;
     }
 
-    // Escape single quotes for shell
-    const escapedMessage = enrichedMessage.replace(/'/g, "'\\''");
-
-    const cmd = `docker exec dev-workspace zsh -c 'claude -p "${escapedMessage}"'`;
-    const output = executeDockerCommand(cmd, 120000);
+    // Pass message as argument directly — no shell interpolation
+    const output = executeCommand(
+      ['docker', 'exec', 'dev-workspace', 'claude', '-p', enrichedMessage],
+      120000
+    );
     return output;
   } catch (e) {
     const error = e as Error & { stdout?: string; stderr?: string };

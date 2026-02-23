@@ -10,6 +10,8 @@ const MIME = {
   '.ico': 'image/x-icon',
 } as const;
 
+const ALLOWED_ORIGIN = process.env.ALLOWED_ORIGIN || '*';
+
 export function send(
   res: ServerResponse,
   code: number,
@@ -18,9 +20,13 @@ export function send(
 ): void {
   res.writeHead(code, {
     'Content-Type': type,
-    'Access-Control-Allow-Origin': '*',
+    'Access-Control-Allow-Origin': ALLOWED_ORIGIN,
     'Access-Control-Allow-Methods': 'GET,POST,PUT,DELETE,OPTIONS',
     'Access-Control-Allow-Headers': 'Content-Type,Authorization',
+    'X-Content-Type-Options': 'nosniff',
+    'X-Frame-Options': 'DENY',
+    'Strict-Transport-Security': 'max-age=31536000; includeSubDomains',
+    'Referrer-Policy': 'strict-origin-when-cross-origin',
   });
   res.end(body);
 }

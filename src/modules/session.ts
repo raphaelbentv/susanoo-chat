@@ -1,12 +1,12 @@
 import type { Session, AdminSession, Role } from '../types/index.js';
-import { genToken } from './crypto.js';
+import { genToken, encryptBackup, decryptBackup } from './crypto.js';
 import { CONFIG } from '../config.js';
-import { readFileSync, writeFileSync, existsSync } from 'fs';
+import { readFileSync, writeFileSync, existsSync, chmodSync } from 'fs';
 import { join } from 'path';
 
 const SESSIONS = new Map<string, Session>();
 const ADMIN_SESSIONS = new Map<string, AdminSession>();
-const SESSIONS_FILE = join(CONFIG.DATA_DIR, 'sessions.json');
+const SESSIONS_FILE = join(CONFIG.DATA_DIR, 'sessions.enc');
 
 interface SessionsStore {
   sessions: Record<string, Session>;
@@ -19,7 +19,10 @@ function saveSessions(): void {
       sessions: Object.fromEntries(SESSIONS),
       adminSessions: Object.fromEntries(ADMIN_SESSIONS),
     };
-    writeFileSync(SESSIONS_FILE, JSON.stringify(store, null, 2), 'utf8');
+    const plaintext = JSON.stringify(store);
+    const encrypted = encryptBackup(plaintext, CONFIG.BACKUP_PASSPHRASE);
+    writeFileSync(SESSIONS_FILE, JSON.stringify(encrypted), 'utf8');
+    try { chmodSync(SESSIONS_FILE, 0o600); } catch { /* Windows compat */ }
   } catch (e) {
     console.error('[ERROR] Failed to save sessions:', e);
   }
@@ -27,13 +30,30 @@ function saveSessions(): void {
 
 export function loadSessions(): void {
   try {
-    if (!existsSync(SESSIONS_FILE)) {
+    // Migrate from old plaintext sessions.json if it exists
+    const legacyFile = join(CONFIG.DATA_DIR, 'sessions.json');
+    const fileToLoad = existsSync(SESSIONS_FILE) ? SESSIONS_FILE
+      : existsSync(legacyFile) ? legacyFile
+      : null;
+
+    if (!fileToLoad) {
       console.log('[INFO] No sessions file found, starting fresh');
       return;
     }
 
-    const data = readFileSync(SESSIONS_FILE, 'utf8');
-    const store: SessionsStore = JSON.parse(data);
+    const raw = readFileSync(fileToLoad, 'utf8');
+    let store: SessionsStore;
+
+    if (fileToLoad === SESSIONS_FILE) {
+      // Encrypted format: { iv, data }
+      const envelope = JSON.parse(raw) as { iv: string; data: string };
+      const plaintext = decryptBackup(envelope.data, envelope.iv, CONFIG.BACKUP_PASSPHRASE);
+      store = JSON.parse(plaintext);
+    } else {
+      // Legacy plaintext format — migrate
+      store = JSON.parse(raw);
+      console.log('[INFO] Migrating sessions.json to encrypted sessions.enc');
+    }
 
     const now = Date.now();
     let loaded = 0;
@@ -60,10 +80,8 @@ export function loadSessions(): void {
 
     console.log(`[INFO] Loaded ${loaded} session(s), cleaned ${expired} expired session(s)`);
 
-    // Save cleaned sessions
-    if (expired > 0) {
-      saveSessions();
-    }
+    // Save in encrypted format (also handles migration)
+    saveSessions();
   } catch (e) {
     console.error('[ERROR] Failed to load sessions:', e);
   }
@@ -165,6 +183,14 @@ export function cleanExpiredSessions(): number {
     saveSessions();
   }
   return cleaned;
+}
+
+export function destroySession(authHeader?: string): boolean {
+  if (!authHeader || !authHeader.startsWith('Bearer ')) return false;
+  const token = authHeader.slice(7);
+  const existed = SESSIONS.delete(token) || ADMIN_SESSIONS.delete(token);
+  if (existed) saveSessions();
+  return existed;
 }
 
 export function getActiveSessionCount(): number {

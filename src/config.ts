@@ -1,9 +1,15 @@
 import path from 'path';
 import { fileURLToPath } from 'url';
-import crypto from 'crypto';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
+
+// Validate required environment variables
+if (!process.env.BACKUP_PASSPHRASE) {
+  console.error('[FATAL] BACKUP_PASSPHRASE environment variable is required.');
+  console.error('        Generate one with: node -e "console.log(require(\'crypto\').randomBytes(32).toString(\'hex\'))"');
+  process.exit(1);
+}
 
 export const CONFIG = {
   VERSION: '0.2.0',
@@ -37,7 +43,7 @@ export const CONFIG = {
   BLOCK_MS: Number(process.env.LOGIN_BLOCK_MS) || 15 * 60 * 1000,
 
   // Backup
-  BACKUP_PASSPHRASE: process.env.BACKUP_PASSPHRASE || crypto.randomBytes(32).toString('hex'),
+  BACKUP_PASSPHRASE: process.env.BACKUP_PASSPHRASE,
   BACKUP_INTERVAL_MS: Number(process.env.BACKUP_INTERVAL_MS) || 6 * 60 * 60 * 1000,
   BACKUP_MAX_COUNT: Number(process.env.BACKUP_MAX_COUNT) || 10,
 

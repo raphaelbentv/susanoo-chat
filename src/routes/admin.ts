@@ -8,6 +8,7 @@ import { audit, readAuditLog } from '../modules/audit.js';
 import { validatePin, isPinExpired } from '../modules/auth.js';
 import { createBackup, listBackups } from '../modules/backup.js';
 import { log } from '../utils/logger.js';
+import { validate } from '../modules/validate.js';
 import type { AdminLoginRequest, ChangeRoleRequest, ResetPinRequest, DisableProfileRequest, DeleteProfileRequest, Role } from '../types/index.js';
 
 const ROLES: Role[] = ['readonly', 'user', 'manager', 'admin'];
@@ -82,12 +83,17 @@ export async function handleChangeRole(req: IncomingMessage, res: ServerResponse
   try {
     const bodyStr = await parseBody(req);
     const data = JSON.parse(bodyStr || '{}') as ChangeRoleRequest;
-    const target = String(data.profile || '').trim().toLowerCase();
-    const newRole = String(data.role || '');
 
-    if (!target || !ROLES.includes(newRole as Role)) {
-      return json(res, 400, { error: 'invalid_params', validRoles: ROLES });
+    const { valid, errors } = validate(data as unknown as Record<string, unknown>, {
+      profile: { type: 'string', required: true, minLength: 1, maxLength: 64 },
+      role: { type: 'string', required: true, oneOf: ROLES },
+    });
+    if (!valid) {
+      return json(res, 400, { error: 'validation_failed', details: errors, validRoles: ROLES });
     }
+
+    const target = String(data.profile).trim().toLowerCase();
+    const newRole = String(data.role);
 
     const db = dbRead();
     if (!db.profiles[target]) {

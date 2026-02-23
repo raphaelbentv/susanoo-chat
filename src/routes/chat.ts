@@ -6,6 +6,7 @@ import { hasPermission } from '../modules/rbac.js';
 import { audit } from '../modules/audit.js';
 import { sendToHashirama } from '../modules/bridge.js';
 import { log } from '../utils/logger.js';
+import { validate, sanitize } from '../modules/validate.js';
 import type { ChatRequest } from '../types/index.js';
 
 export async function handleHistory(req: IncomingMessage, res: ServerResponse): Promise<void> {
@@ -90,19 +91,23 @@ export async function handleChat(req: IncomingMessage, res: ServerResponse): Pro
   try {
     const bodyStr = await parseBody(req);
     const data = JSON.parse(bodyStr || '{}') as ChatRequest;
-    const message = String(data.message || '').trim();
 
-    if (!message) {
-      return json(res, 400, { error: 'message_required' });
+    const { valid, errors } = validate(data as unknown as Record<string, unknown>, {
+      message: { type: 'string', required: true, minLength: 1, maxLength: 50000 },
+    });
+    if (!valid) {
+      return json(res, 400, { error: 'validation_failed', details: errors });
     }
+
+    const message = sanitize(data.message, 50000);
 
     const options = {
       model: data.model || 'claude-sonnet-4',
-      temperature: data.temperature || 0.8,
-      maxTokens: data.maxTokens || 8192,
+      temperature: Math.min(Math.max(data.temperature || 0.8, 0), 2),
+      maxTokens: Math.min(Math.max(data.maxTokens || 8192, 1), 32768),
       deepSearch: data.deepSearch || false,
-      contexts: data.contexts || [],
-      connectors: data.connectors || [],
+      contexts: Array.isArray(data.contexts) ? data.contexts.slice(0, 10).map(c => sanitize(c, 100)) : [],
+      connectors: Array.isArray(data.connectors) ? data.connectors.slice(0, 10).map(c => sanitize(c, 100)) : [],
     };
 
     const reply = sendToHashirama(message, session.profile, options);

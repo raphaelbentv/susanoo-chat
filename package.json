@@ -10,6 +10,7 @@
     "build:backend": "tsc",
     "build:frontend": "esbuild frontend/script.ts --bundle --outfile=dist/script.js --target=es2020 --format=iife",
     "start": "node dist/server.js",
+    "test": "tsx --test tests/*.test.ts",
     "type-check": "tsc --noEmit"
   },
   "keywords": [],

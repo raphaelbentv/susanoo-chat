@@ -1,18 +1,21 @@
 import http from 'http';
+import https from 'https';
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { CONFIG } from './config.js';
-import { send, parseUrl, getMimeType } from './utils/http.js';
+import { send, json, parseUrl, getMimeType } from './utils/http.js';
 import { log } from './utils/logger.js';
 import { cleanExpiredSessions, loadSessions } from './modules/session.js';
 import { createBackup } from './modules/backup.js';
 
 // Routes
 import { handleHealth, handlePasswordPolicy, handleFrontendError } from './routes/health.js';
+import { handleSetupStatus, handleSetup } from './routes/setup.js';
 import { handleUnifiedLogin } from './routes/login.js';
 import {
   handleProfileLogin,
+  handleLogout,
   handleSessionInfo,
   handleSessionRefresh,
   handleChangePin,
@@ -62,8 +65,27 @@ function ensureDir(dir: string): void {
 ensureDir(CONFIG.DATA_DIR);
 ensureDir(CONFIG.BACKUP_DIR);
 
-// Main HTTP server
-const server = http.createServer(async (req, res) => {
+// ─── TLS CONFIGURATION ─────────────────────────────────
+const tlsCert = process.env.TLS_CERT_PATH;
+const tlsKey = process.env.TLS_KEY_PATH;
+const useTLS = !!(tlsCert && tlsKey);
+
+let tlsOptions: https.ServerOptions | undefined;
+if (useTLS) {
+  try {
+    tlsOptions = {
+      cert: fs.readFileSync(tlsCert),
+      key: fs.readFileSync(tlsKey),
+    };
+    log('info', 'tls_enabled', { cert: tlsCert });
+  } catch (e) {
+    console.error(`[FATAL] Failed to load TLS certificates: ${(e as Error).message}`);
+    process.exit(1);
+  }
+}
+
+// Main request handler
+const requestHandler = async (req: http.IncomingMessage, res: http.ServerResponse) => {
   const { pathname } = parseUrl(req.url || '/');
 
   if (req.method === 'OPTIONS') {
@@ -82,6 +104,16 @@ const server = http.createServer(async (req, res) => {
 
   if (req.method === 'POST' && pathname === '/api/log/error') {
     return handleFrontendError(req, res);
+  }
+
+  // ─── INITIAL SETUP ──────────────────────────────────────
+
+  if (req.method === 'GET' && pathname === '/api/setup/status') {
+    return handleSetupStatus(req, res);
+  }
+
+  if (req.method === 'POST' && pathname === '/api/setup') {
+    return handleSetup(req, res);
   }
 
   // ─── UNIFIED LOGIN ─────────────────────────────────────
@@ -103,6 +135,12 @@ const server = http.createServer(async (req, res) => {
   // ─── ADMIN ENDPOINTS ───────────────────────────────────
 
   if (pathname.startsWith('/api/admin/') && pathname !== '/api/admin/login') {
+    // Rate limit all admin actions
+    const { adminActionCheck } = await import('./modules/ratelimit.js');
+    const adminRateCheck = adminActionCheck(req);
+    if (adminRateCheck.blocked) {
+      return json(res, 429, { error: 'too_many_requests', retryAfterMs: adminRateCheck.retryAfterMs });
+    }
     if (req.method === 'GET' && pathname === '/api/admin/profiles') {
       return handleListProfiles(req, res);
     }
@@ -141,6 +179,10 @@ const server = http.createServer(async (req, res) => {
   // ─── AUTHENTICATED USER ENDPOINTS ──────────────────────
 
   if (pathname.startsWith('/api/')) {
+    if (req.method === 'POST' && pathname === '/api/logout') {
+      return handleLogout(req, res);
+    }
+
     if (req.method === 'GET' && pathname === '/api/session/info') {
       return handleSessionInfo(req, res);
     }
@@ -254,7 +296,7 @@ const server = http.createServer(async (req, res) => {
     const ext = path.extname(fullPath);
     send(res, 200, buffer, getMimeType(ext));
   });
-});
+};
 
 // ══════════════════════════════════════════════════════════
 // START
@@ -263,13 +305,40 @@ const server = http.createServer(async (req, res) => {
 // Load persisted sessions before starting server
 loadSessions();
 
+// Warn if no admin account exists
+import { dbRead, dbFlush } from './modules/database.js';
+const _db = dbRead();
+if (!_db.admin) {
+  console.log('⚠ No admin account configured — POST /api/setup to create one');
+}
+
+// Create server with TLS if certificates are configured
+const server = useTLS
+  ? https.createServer(tlsOptions!, requestHandler)
+  : http.createServer(requestHandler);
+
+const protocol = useTLS ? 'https' : 'http';
+
 server.listen(CONFIG.PORT, () => {
-  log('info', 'server_started', { port: CONFIG.PORT, version: CONFIG.VERSION });
+  log('info', 'server_started', { port: CONFIG.PORT, version: CONFIG.VERSION, tls: useTLS });
   console.log(`✓ Hashirama Chat v${CONFIG.VERSION} (TypeScript)`);
-  console.log(`✓ Listening on http://localhost:${CONFIG.PORT}`);
+  console.log(`✓ Listening on ${protocol}://localhost:${CONFIG.PORT}`);
+  if (!useTLS) {
+    console.log(`⚠ TLS disabled — set TLS_CERT_PATH and TLS_KEY_PATH for HTTPS`);
+  }
   console.log(`✓ Data directory: ${CONFIG.DATA_DIR}`);
 });
 
 setInterval(cleanExpiredSessions, CONFIG.SESSION_CLEANUP_MS);
 setInterval(createBackup, CONFIG.BACKUP_INTERVAL_MS);
 setTimeout(createBackup, 5000);
+
+// Graceful shutdown — flush pending writes
+function shutdown() {
+  log('info', 'server_stopping', {});
+  dbFlush();
+  server.close(() => process.exit(0));
+  setTimeout(() => process.exit(1), 5000);
+}
+process.on('SIGTERM', shutdown);
+process.on('SIGINT', shutdown);

@@ -1,7 +1,7 @@
 import type { IncomingMessage, ServerResponse } from 'http';
 import { json, parseBody } from '../utils/http.js';
 import { dbRead, dbWrite } from '../modules/database.js';
-import { createSession, getSession, refreshSession } from '../modules/session.js';
+import { createSession, getSession, refreshSession, destroySession } from '../modules/session.js';
 import { hashPin, genSalt } from '../modules/crypto.js';
 import { limiterCheck, limiterFail, limiterReset, loginKey, getClientIp } from '../modules/ratelimit.js';
 import { audit } from '../modules/audit.js';
@@ -101,6 +101,15 @@ export async function handleProfileLogin(req: IncomingMessage, res: ServerRespon
     log('error', 'profile_login_error', { error: (e as Error).message });
     return json(res, 500, { error: 'login_failed' });
   }
+}
+
+export async function handleLogout(req: IncomingMessage, res: ServerResponse): Promise<void> {
+  const destroyed = destroySession(req.headers.authorization);
+  if (!destroyed) {
+    return json(res, 401, { error: 'unauthorized' });
+  }
+  audit('logout', { ip: getClientIp(req) });
+  return json(res, 200, { ok: true });
 }
 
 export async function handleSessionInfo(req: IncomingMessage, res: ServerResponse): Promise<void> {

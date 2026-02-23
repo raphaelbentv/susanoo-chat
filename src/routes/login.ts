@@ -8,6 +8,7 @@ import { audit } from '../modules/audit.js';
 import { validatePin, isPinExpired } from '../modules/auth.js';
 import { log } from '../utils/logger.js';
 import { CONFIG } from '../config.js';
+import { validate } from '../modules/validate.js';
 
 interface UnifiedLoginRequest {
   identifier: string;
@@ -18,12 +19,17 @@ export async function handleUnifiedLogin(req: IncomingMessage, res: ServerRespon
   try {
     const bodyStr = await parseBody(req);
     const body = JSON.parse(bodyStr || '{}') as UnifiedLoginRequest;
-    const identifier = String(body.identifier || '').trim().toLowerCase();
-    const password = String(body.password || '');
 
-    if (!identifier || !password) {
-      return json(res, 400, { error: 'identifier_password_required' });
+    const { valid, errors } = validate(body as unknown as Record<string, unknown>, {
+      identifier: { type: 'string', required: true, minLength: 1, maxLength: 64, pattern: /^[a-zA-Z0-9_@.\-]+$/ },
+      password: { type: 'string', required: true, minLength: 1, maxLength: 256 },
+    });
+    if (!valid) {
+      return json(res, 400, { error: 'validation_failed', details: errors });
     }
+
+    const identifier = String(body.identifier).trim().toLowerCase();
+    const password = String(body.password);
 
     const db = dbRead();
 
