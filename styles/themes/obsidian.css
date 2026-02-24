@@ -14,9 +14,9 @@
   --surface2: rgba(8,5,5,0.96);
   --border: rgba(255,255,255,0.05);
   --border-dim: rgba(255,255,255,0.02);
-  --text: rgba(255,255,255,0.82);
-  --text-dim: rgba(255,255,255,0.58);
-  --text-faint: rgba(255,255,255,0.28);
+  --text: rgba(255,255,255,0.88);
+  --text-dim: rgba(255,255,255,0.68);
+  --text-faint: rgba(255,255,255,0.45);
   --danger: #ff3838;
   --success: #00b894;
 

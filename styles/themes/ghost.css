@@ -93,7 +93,49 @@
 [data-theme="ghost"] .input-box textarea {
   color: rgba(10,10,10,0.82);
 }
+[data-theme="ghost"] .input-box textarea::placeholder {
+  color: rgba(26,26,26,0.40);
+}
 
 [data-theme="ghost"] .login-input {
   color: rgba(10,10,10,0.80);
+  background: rgba(26,26,26,0.04);
+  border-color: rgba(26,26,26,0.15);
+}
+[data-theme="ghost"] .login-input::placeholder {
+  color: rgba(26,26,26,0.38);
+}
+[data-theme="ghost"] .login-hint {
+  color: rgba(26,26,26,0.42);
+}
+[data-theme="ghost"] .login-submit {
+  background: rgba(26,26,26,0.08);
+  border-color: rgba(26,26,26,0.20);
+  color: var(--gold);
+}
+
+/* Input meta + send/attach buttons */
+[data-theme="ghost"] .input-meta {
+  color: rgba(26,26,26,0.42);
+}
+[data-theme="ghost"] .send-btn {
+  background: rgba(26,26,26,0.06);
+  border-color: rgba(26,26,26,0.18);
+}
+[data-theme="ghost"] .attach-btn {
+  border-color: rgba(26,26,26,0.10);
+}
+
+/* Mobile input */
+[data-theme="ghost"] .mobile-cmp-inner {
+  background: rgba(250,248,246,0.95);
+  border-color: rgba(26,26,26,0.12);
+}
+[data-theme="ghost"] .mobile-cmp-inner textarea {
+  color: rgba(10,10,10,0.82);
+  -webkit-text-fill-color: rgba(10,10,10,0.82);
+}
+[data-theme="ghost"] .mobile-cmp-inner textarea::placeholder {
+  color: rgba(26,26,26,0.38);
+  -webkit-text-fill-color: rgba(26,26,26,0.38);
 }

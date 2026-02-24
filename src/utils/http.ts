@@ -35,12 +35,12 @@ export function json(res: ServerResponse, code: number, data: unknown): void {
   send(res, code, JSON.stringify(data), MIME['.json']);
 }
 
-export function parseBody(req: IncomingMessage): Promise<string> {
+export function parseBody(req: IncomingMessage, maxBytes = 1e6): Promise<string> {
   return new Promise((resolve, reject) => {
     let body = '';
     req.on('data', chunk => {
       body += chunk;
-      if (body.length > 1e6) {
+      if (body.length > maxBytes) {
         reject(new Error('too_large'));
       }
     });

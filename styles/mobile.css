@@ -295,6 +295,25 @@
   flex-shrink: 0;
 }
 
+/* Mobile file preview */
+.viewport-tablet .file-preview-bar,
+.viewport-mobile .file-preview-bar {
+  padding: 6px 14px;
+}
+.viewport-tablet .file-chip,
+.viewport-mobile .file-chip {
+  padding: 6px 10px 6px 8px;
+  border-radius: var(--m-r-md);
+  font-size: 12px;
+}
+.viewport-tablet .file-chip-remove,
+.viewport-mobile .file-chip-remove {
+  width: 28px; height: 28px;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 16px;
+  -webkit-tap-highlight-color: transparent;
+}
+
 .mobile-cbtn {
   width: 32px; height: 32px;
   border-radius: 50%;

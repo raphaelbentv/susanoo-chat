@@ -3,6 +3,7 @@ data/
 
 # Temp files
 /tmp/
+.tmp/
 
 # Logs
 *.log

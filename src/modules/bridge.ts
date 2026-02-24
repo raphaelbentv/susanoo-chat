@@ -1,6 +1,6 @@
 import { execFileSync, spawnSync } from 'child_process';
 import { log } from '../utils/logger.js';
-import { readFileSync } from 'fs';
+import { readFileSync, writeFileSync, mkdirSync, unlinkSync } from 'fs';
 import { join } from 'path';
 
 // Load environment variables
@@ -64,6 +64,12 @@ function executeCommand(args: string[], timeout = 30000): string {
   }).trim();
 }
 
+interface ChatFile {
+  name: string;
+  type: string;
+  data: string; // base64
+}
+
 interface ChatOptions {
   model: string;
   temperature: number;
@@ -71,6 +77,7 @@ interface ChatOptions {
   deepSearch: boolean;
   contexts: string[];
   connectors: string[];
+  files?: ChatFile[];
 }
 
 export function getHashiramaStatus(): any {
@@ -109,6 +116,8 @@ export function getHashiramaStatus(): any {
 }
 
 export function sendToHashirama(message: string, _profile: string, options: ChatOptions): string {
+  const tempFiles: string[] = [];
+
   try {
     // Enrichir le message avec les métadonnées de contexte
     let enrichedMessage = message;
@@ -130,6 +139,29 @@ export function sendToHashirama(message: string, _profile: string, options: Chat
       enrichedMessage = '[Mode : Recherche approfondie activée]\n' + enrichedMessage;
     }
 
+    // Handle file attachments
+    if (options.files && options.files.length > 0) {
+      const tmpDir = join(process.cwd(), '.tmp', 'uploads');
+      mkdirSync(tmpDir, { recursive: true });
+
+      for (const file of options.files) {
+        const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, '_').slice(0, 100);
+        const tmpPath = join(tmpDir, `${Date.now()}_${safeName}`);
+        const buffer = Buffer.from(file.data, 'base64');
+        writeFileSync(tmpPath, buffer);
+        tempFiles.push(tmpPath);
+
+        // For text-based files, inline content in the message
+        if (file.type.startsWith('text/') || safeName.match(/\.(txt|csv|md|json|xml|html|css|js|ts)$/i)) {
+          const textContent = buffer.toString('utf8').slice(0, 30000);
+          enrichedMessage += `\n\n--- Fichier joint : ${file.name} ---\n${textContent}\n--- Fin du fichier ---`;
+        } else {
+          // For binary files (images, PDFs), note them in the message
+          enrichedMessage += `\n\n[Fichier joint : ${file.name} (${file.type}, ${Math.round(buffer.length / 1024)} Ko)]`;
+        }
+      }
+    }
+
     // Pass message as argument directly — no shell interpolation
     const output = executeCommand(
       ['docker', 'exec', 'dev-workspace', 'claude', '-p', enrichedMessage],
@@ -142,8 +174,13 @@ export function sendToHashirama(message: string, _profile: string, options: Chat
       error: error.message,
       stdout: error.stdout,
       stderr: error.stderr,
-      options,
+      options: { ...options, files: options.files?.map(f => ({ name: f.name, type: f.type })) },
     });
     throw new Error('bridge_failed');
+  } finally {
+    // Clean up temp files
+    for (const f of tempFiles) {
+      try { unlinkSync(f); } catch { /* ignore */ }
+    }
   }
 }

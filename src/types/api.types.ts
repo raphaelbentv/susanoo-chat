@@ -25,6 +25,12 @@ export interface AdminLoginResponse {
   expiresAt: number;
 }
 
+export interface ChatFile {
+  name: string;
+  type: string;
+  data: string; // base64
+}
+
 export interface ChatRequest {
   message: string;
   model?: string;
@@ -33,6 +39,7 @@ export interface ChatRequest {
   deepSearch?: boolean;
   contexts?: string[];
   connectors?: string[];
+  files?: ChatFile[];
 }
 
 export interface ChatResponse {

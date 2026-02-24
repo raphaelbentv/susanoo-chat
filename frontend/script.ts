@@ -53,6 +53,8 @@ const mobileBzone = $('#mobileBzone');
 const mobileInput = $('#mobileInput') as HTMLTextAreaElement;
 const mobileSendBtn = $('#mobileSendBtn');
 const mobileAttachBtn = $('#mobileAttachBtn');
+const fileInput = $('#fileInput') as HTMLInputElement;
+const filePreviewBar = $('#filePreviewBar');
 const mobileTabs = $('#mobileTabs');
 const mobileBackdrop = $('#mobileBackdrop');
 const mobileSheetSessions = $('#mobileSheetSessions');
@@ -104,6 +106,7 @@ let currentArtifact = null; // { type: 'html'|'svg'|'react', code: string, title
 let adminUsers = []; // Liste des utilisateurs pour l'admin
 let adminAuditLog = []; // Logs d'audit pour l'admin
 let mobileSheetCurrent = null; // Currently open mobile sheet id
+let pendingFiles: { name: string; type: string; base64: string; size: number }[] = [];
 
 
 const THEMES = [
@@ -141,6 +144,76 @@ function formatRemaining(ms) {
   const m = Math.floor((ms % 3600000) / 60000);
   if (h > 0) return `${h}h${String(m).padStart(2,'0')}`;
   return `${m}min`;
+}
+
+// ── FILE UPLOAD ─────────────────────────────────────────────
+const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10 MB
+const ALLOWED_TYPES = [
+  'image/png', 'image/jpeg', 'image/gif', 'image/webp',
+  'application/pdf', 'text/plain', 'text/csv', 'text/markdown',
+];
+
+function openFilePicker() {
+  fileInput.value = '';
+  fileInput.click();
+}
+
+function handleFileSelect(e: Event) {
+  const input = e.target as HTMLInputElement;
+  if (!input.files) return;
+  for (const file of Array.from(input.files)) {
+    if (file.size > MAX_FILE_SIZE) {
+      alert(`Fichier "${file.name}" trop volumineux (max 10 Mo)`);
+      continue;
+    }
+    if (!ALLOWED_TYPES.includes(file.type) && !file.name.match(/\.(txt|csv|md)$/i)) {
+      alert(`Type non supporté : ${file.type || file.name.split('.').pop()}`);
+      continue;
+    }
+    const reader = new FileReader();
+    reader.onload = () => {
+      const base64 = (reader.result as string).split(',')[1];
+      pendingFiles.push({ name: file.name, type: file.type, base64, size: file.size });
+      renderFilePreview();
+    };
+    reader.readAsDataURL(file);
+  }
+}
+
+function removeFile(index: number) {
+  pendingFiles.splice(index, 1);
+  renderFilePreview();
+}
+
+function renderFilePreview() {
+  if (!filePreviewBar) return;
+  if (pendingFiles.length === 0) {
+    filePreviewBar.classList.add('hidden');
+    filePreviewBar.innerHTML = '';
+    return;
+  }
+  filePreviewBar.classList.remove('hidden');
+  filePreviewBar.innerHTML = pendingFiles.map((f, i) => {
+    const icon = f.type.startsWith('image/') ? '🖼' : f.type === 'application/pdf' ? '📄' : '📎';
+    const sizeLabel = f.size < 1024 ? `${f.size} o` : f.size < 1048576 ? `${(f.size / 1024).toFixed(0)} Ko` : `${(f.size / 1048576).toFixed(1)} Mo`;
+    return `<div class="file-chip">
+      <span class="file-chip-icon">${icon}</span>
+      <span class="file-chip-name">${escHtml(f.name)}</span>
+      <span class="file-chip-size">${sizeLabel}</span>
+      <button class="file-chip-remove" data-idx="${i}" type="button">&times;</button>
+    </div>`;
+  }).join('');
+  filePreviewBar.querySelectorAll('.file-chip-remove').forEach(btn => {
+    btn.addEventListener('click', (e) => {
+      const idx = Number((e.currentTarget as HTMLElement).dataset.idx);
+      removeFile(idx);
+    });
+  });
+}
+
+function clearPendingFiles() {
+  pendingFiles = [];
+  renderFilePreview();
 }
 
 // ── HTML BUILDERS ───────────────────────────────────────────
@@ -1384,8 +1457,9 @@ async function sendMessage() {
   const isMobile = viewport === 'mobile' || viewport === 'tablet';
   const activeInput = (isMobile && mobileInput) ? mobileInput : chatInput;
   const text = activeInput.value.trim();
-  console.log('[DEBUG] text:', text, 'typing:', typing, 'token:', !!token);
-  if (!text || typing || !token) {
+  const hasFiles = pendingFiles.length > 0;
+  console.log('[DEBUG] text:', text, 'typing:', typing, 'token:', !!token, 'files:', pendingFiles.length);
+  if ((!text && !hasFiles) || typing || !token) {
     console.log('[DEBUG] sendMessage aborted - conditions not met');
     return;
   }
@@ -1403,10 +1477,18 @@ async function sendMessage() {
     activeConversationId = newConv.id;
   }
 
+  // Capture files before clearing
+  const filesToSend = [...pendingFiles];
+  const fileNames = filesToSend.map(f => f.name);
+
   console.log('[DEBUG] Adding user message to UI...');
-  addMessage('user', text);
+  const displayText = fileNames.length > 0
+    ? (text ? text + '\n📎 ' + fileNames.join(', ') : '📎 ' + fileNames.join(', '))
+    : text;
+  addMessage('user', displayText);
   activeInput.value = '';
   activeInput.style.height = 'auto';
+  clearPendingFiles();
   // Also clear the other input
   if (isMobile && chatInput) { chatInput.value = ''; chatInput.style.height = 'auto'; }
   else if (!isMobile && mobileInput) { mobileInput.value = ''; mobileInput.style.height = 'auto'; }
@@ -1418,10 +1500,11 @@ async function sendMessage() {
     headers: authHeaders(),
     body: JSON.stringify({
       role: 'user',
-      content: text,
+      content: displayText,
       metadata: {
         contexts: activeTags,
         connectors: activeConnectors,
+        files: fileNames,
       },
     }),
   }).catch(() => {});
@@ -1431,8 +1514,8 @@ async function sendMessage() {
   sendBtn.disabled = true;
 
   try {
-    const payload = {
-      message: text,
+    const payload: any = {
+      message: text || '(fichiers joints)',
       model: selectedModel,
       temperature: temperature / 100,
       maxTokens: Math.round(maxTokens * 81.92),
@@ -1440,6 +1523,9 @@ async function sendMessage() {
       contexts: activeTags,
       connectors: activeConnectors,
     };
+    if (filesToSend.length > 0) {
+      payload.files = filesToSend.map(f => ({ name: f.name, type: f.type, data: f.base64 }));
+    }
 
     console.log('[DEBUG] Sending to /api/chat with payload:', payload);
     const r = await fetch('/api/chat', { method: 'POST', headers: authHeaders(), body: JSON.stringify(payload) });
@@ -2520,6 +2606,11 @@ chatInput.addEventListener('keydown', (e) => {
   if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage(); }
 });
 sendBtn.addEventListener('click', sendMessage);
+
+// File attach buttons
+fileInput.addEventListener('change', handleFileSelect);
+$('#attachBtn')?.addEventListener('click', openFilePicker);
+mobileAttachBtn?.addEventListener('click', openFilePicker);
 
 // Unified login form
 loginForm.addEventListener('submit', async (e) => {

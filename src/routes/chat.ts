@@ -89,7 +89,8 @@ export async function handleChat(req: IncomingMessage, res: ServerResponse): Pro
   }
 
   try {
-    const bodyStr = await parseBody(req);
+    // Allow up to 15 MB for file uploads
+    const bodyStr = await parseBody(req, 15e6);
     const data = JSON.parse(bodyStr || '{}') as ChatRequest;
 
     const { valid, errors } = validate(data as unknown as Record<string, unknown>, {
@@ -101,6 +102,13 @@ export async function handleChat(req: IncomingMessage, res: ServerResponse): Pro
 
     const message = sanitize(data.message, 50000);
 
+    // Validate files if present
+    const files = Array.isArray(data.files) ? data.files.slice(0, 5).map(f => ({
+      name: String(f.name || 'file').slice(0, 200),
+      type: String(f.type || 'application/octet-stream'),
+      data: String(f.data || ''),
+    })) : [];
+
     const options = {
       model: data.model || 'claude-sonnet-4',
       temperature: Math.min(Math.max(data.temperature || 0.8, 0), 2),
@@ -108,6 +116,7 @@ export async function handleChat(req: IncomingMessage, res: ServerResponse): Pro
       deepSearch: data.deepSearch || false,
       contexts: Array.isArray(data.contexts) ? data.contexts.slice(0, 10).map(c => sanitize(c, 100)) : [],
       connectors: Array.isArray(data.connectors) ? data.connectors.slice(0, 10).map(c => sanitize(c, 100)) : [],
+      files,
     };
 
     const reply = sendToHashirama(message, session.profile, options);

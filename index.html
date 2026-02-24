@@ -127,6 +127,8 @@
         </div>
 
         <div class="chat-input-area">
+          <input type="file" id="fileInput" multiple accept="image/png,image/jpeg,image/gif,image/webp,application/pdf,.txt,.csv,.md" style="display:none">
+          <div class="file-preview-bar hidden" id="filePreviewBar"></div>
           <div class="input-box">
             <div class="ornament tl"></div>
             <div class="ornament tr"></div>
@@ -134,7 +136,7 @@
             <div class="ornament br"></div>
             <textarea id="chatInput" rows="1" placeholder="Votre commande impériale…" autocomplete="off"></textarea>
             <div class="input-actions">
-              <button class="attach-btn" id="attachBtn" title="Ajouter" type="button">⊕</button>
+              <button class="attach-btn" id="attachBtn" title="Ajouter un fichier" type="button">⊕</button>
               <button class="send-btn" id="sendBtn" type="button">Envoyer</button>
             </div>
           </div>
