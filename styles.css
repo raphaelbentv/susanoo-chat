@@ -13,9 +13,9 @@
   --surface2: rgba(10,8,5,0.98);
   --border: rgba(170,120,25,0.20);
   --border-dim: rgba(170,120,25,0.08);
-  --text: rgba(255,255,255,0.95);
-  --text-dim: rgba(255,255,255,0.70);
-  --text-faint: rgba(255,255,255,0.40);
+  --text: rgba(255,255,255,0.97);
+  --text-dim: rgba(255,255,255,0.82);
+  --text-faint: rgba(255,255,255,0.58);
   --danger: #c0392b;
   --success: #7a8a20;
   --font-display: 'Cinzel', serif;

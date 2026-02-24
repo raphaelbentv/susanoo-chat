@@ -2559,8 +2559,8 @@ loginModal.addEventListener('click', (e) => {
 });
 
 navAvatar.addEventListener('click', () => {
-  // Toujours ouvrir la modal de login (pour se déconnecter ou changer de profil)
-  loginModal.classList.remove('hidden');
+  clearSession();
+  showLogin();
 });
 
 // Options modal (mobile/tablet)
