@@ -119,8 +119,8 @@ const THEMES = [
 ];
 
 const MODELS = [
-  { id: 'claude-opus-4', name: 'Opus 4', desc: 'Le plus puissant · Raisonnement complexe', cost: 'high' },
-  { id: 'claude-sonnet-4', name: 'Sonnet 4', desc: 'Équilibré · Performance/coût optimal', cost: 'medium' },
+  { id: 'claude-opus-4', name: 'Opus 4.6', desc: 'Le plus puissant · Raisonnement complexe', cost: 'high' },
+  { id: 'claude-sonnet-4', name: 'Sonnet 4.6', desc: 'Équilibré · Performance/coût optimal', cost: 'medium' },
   { id: 'claude-haiku-4', name: 'Haiku 4', desc: 'Rapide · Tâches simples', cost: 'low' },
 ];
 
@@ -790,8 +790,9 @@ async function applyTheme(themeId) {
     }
   }
 
-  // Re-render right panel to update active state (includes admin section)
+  // Re-render panels to update active state
   renderRightPanel();
+  if (viewport !== 'desktop') renderMobileOptions();
 }
 
 // ── MARKDOWN PARSER ─────────────────────────────────────────
@@ -1429,6 +1430,12 @@ async function login(identifier, password) {
   }
   if (d.created) {
     setTimeout(() => alert(`Profil "${profile}" créé avec succès.`), 300);
+  }
+
+  // Default model: opus for admin, sonnet for others
+  if (!localStorage.getItem('hashirama_model')) {
+    selectedModel = isAdmin ? 'claude-opus-4' : 'claude-sonnet-4';
+    localStorage.setItem('hashirama_model', selectedModel);
   }
 
   // Show admin section if user is admin

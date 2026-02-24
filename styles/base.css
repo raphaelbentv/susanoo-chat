@@ -680,13 +680,13 @@ input[type=range]::-webkit-slider-thumb {
 .input-actions { display: flex; gap: 8px; align-items: center; flex-shrink: 0; }
 
 .attach-btn {
-  width: 30px; height: 30px;
-  border: 1px solid var(--border-dim); background: transparent;
-  cursor: pointer; color: var(--text-faint); font-size: 10px;
+  width: 34px; height: 34px;
+  border: 1px solid var(--border); background: transparent;
+  cursor: pointer; color: var(--gold); font-size: 18px; font-weight: 300;
   display: flex; align-items: center; justify-content: center;
-  transition: all 0.2s;
+  transition: all 0.2s; border-radius: 6px;
 }
-.attach-btn:hover { color: var(--gold); }
+.attach-btn:hover { background: var(--gold-faint); color: var(--gold); }
 
 .send-btn {
   height: 30px; padding: 0 16px;

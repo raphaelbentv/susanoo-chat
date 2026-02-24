@@ -53,6 +53,13 @@
   font-family: 'DM Sans', -apple-system, sans-serif;
 }
 
+/* ── LAYOUT BODY (ensure flex shrinks for bzone) ─────── */
+.viewport-tablet .layout-body,
+.viewport-mobile .layout-body {
+  min-height: 0;
+  overflow: hidden;
+}
+
 /* ── SHOW MOBILE ELEMENTS ─────────────────────────────── */
 .viewport-tablet .mobile-hdr,
 .viewport-mobile .mobile-hdr {
@@ -62,6 +69,9 @@
 .viewport-tablet .mobile-bzone,
 .viewport-mobile .mobile-bzone {
   display: block;
+  flex-shrink: 0;
+  position: sticky;
+  bottom: 0;
 }
 
 /* ══════════════════════════════════════════════════════════
@@ -315,7 +325,7 @@
 }
 
 .mobile-cbtn {
-  width: 32px; height: 32px;
+  width: 36px; height: 36px;
   border-radius: 50%;
   border: none;
   cursor: pointer;
@@ -332,7 +342,7 @@
 }
 
 .mobile-cbtn svg {
-  width: 14px; height: 14px;
+  width: 18px; height: 18px;
   fill: none;
   stroke-width: 2.2;
 }
@@ -347,12 +357,13 @@
 }
 
 .mobile-cbtn-xtr {
-  background: rgba(255,255,255,0.06);
+  background: rgba(255,255,255,0.08);
+  border: 1px solid rgba(255,255,255,0.10);
 }
 
 .mobile-cbtn-xtr svg {
-  stroke: var(--m-text2);
-  stroke-width: 1.8;
+  stroke: var(--m-gold);
+  stroke-width: 2;
 }
 
 /* ── TABS ──────────────────────────────────────────────── */
