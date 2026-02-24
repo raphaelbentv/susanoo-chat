@@ -1301,6 +1301,7 @@ async function login(identifier, password) {
   }
 
   await loadHistory();
+  updateMobileBadge();
   loadHashiramaStatus(); // Load real API consumption
   checkHashiramaConnection(); // Check Hashirama connection
 
@@ -1762,6 +1763,9 @@ async function reloadAdminUsers() {
   if (r.ok) {
     adminUsers = d.items || [];
     renderAdminUsers();
+    // Also refresh mobile admin modal if open
+    const mobileAdminModal = document.getElementById('mobileAdminModal');
+    if (mobileAdminModal) renderMobileAdminUsers(mobileAdminModal);
   }
 }
 
@@ -2080,6 +2084,21 @@ function renderMobileOptions() {
         </div>
       </div>
     </div>
+    ${isAdmin ? `
+    <div class="mobile-setting-group" style="margin-top:12px;">
+      <div class="mobile-setting-item" id="mobileAdminBtn">
+        <div class="mobile-setting-icon" style="background:linear-gradient(135deg,#8B6A2E,#5A4420);">
+          <svg viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M11.48 3.499a.562.562 0 011.04 0l2.125 5.111a.563.563 0 00.475.345l5.518.442c.499.04.701.663.321.988l-4.204 3.602a.563.563 0 00-.182.557l1.285 5.385a.562.562 0 01-.84.61l-4.725-2.885a.563.563 0 00-.586 0L6.982 20.54a.562.562 0 01-.84-.61l1.285-5.386a.562.562 0 00-.182-.557l-4.204-3.602a.563.563 0 01.321-.988l5.518-.442a.563.563 0 00.475-.345L11.48 3.5z"/></svg>
+        </div>
+        <div class="mobile-setting-text">
+          <div class="mobile-setting-name" style="color:var(--m-gold);">Administration</div>
+          <div class="mobile-setting-sub">Gérer les utilisateurs, audit, backups</div>
+        </div>
+        <div class="mobile-setting-arrow">
+          <svg viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M8.25 4.5l7.5 7.5-7.5 7.5"/></svg>
+        </div>
+      </div>
+    </div>` : ''}
     <div style="padding:12px 20px 0;">
       <div class="mobile-sheet-title" style="text-align:left;padding:0 0 8px;">THÈME VISUEL</div>
     </div>
@@ -2131,6 +2150,11 @@ function renderMobileOptions() {
       clearSession();
       showLogin();
     });
+
+    $('#mobileAdminBtn')?.addEventListener('click', () => {
+      closeMobileSheet();
+      openMobileAdminDashboard();
+    });
   }, 10);
 }
 
@@ -2151,6 +2175,129 @@ function updateMobileBadge() {
     }
     if (mobileStatusText) (mobileStatusText as HTMLElement).style.color = 'var(--danger)';
   }
+}
+
+function openMobileAdminDashboard() {
+  if (!isAdmin) return;
+
+  const modal = document.createElement('div');
+  modal.id = 'mobileAdminModal';
+  modal.style.cssText = 'position:fixed;inset:0;background:var(--bg,#06050A);z-index:9999;display:flex;flex-direction:column;overflow:hidden;';
+
+  modal.innerHTML = `
+    <div style="display:flex;align-items:center;justify-content:space-between;padding:16px 20px;border-bottom:1px solid rgba(255,255,255,0.08);flex-shrink:0;">
+      <div style="font-family:'Cinzel',serif;font-size:14px;color:var(--gold,#C8A96E);text-transform:uppercase;letter-spacing:2px;">Administration</div>
+      <button id="mobileAdminClose" style="background:none;border:1px solid rgba(255,255,255,0.1);width:32px;height:32px;border-radius:8px;cursor:pointer;color:var(--text-dim,#9B9080);font-size:16px;display:flex;align-items:center;justify-content:center;">✕</button>
+    </div>
+    <div style="display:flex;gap:4px;padding:12px 16px;border-bottom:1px solid rgba(255,255,255,0.05);flex-shrink:0;overflow-x:auto;">
+      <button class="m-admin-tab active" data-tab="users" style="flex:1;min-width:80px;padding:8px 12px;background:rgba(200,169,110,0.12);border:1px solid var(--gold,#C8A96E);color:var(--gold,#C8A96E);font-family:'DM Sans',sans-serif;font-size:11px;cursor:pointer;border-radius:8px;white-space:nowrap;">👥 Utilisateurs</button>
+      <button class="m-admin-tab" data-tab="audit" style="flex:1;min-width:80px;padding:8px 12px;background:transparent;border:1px solid rgba(255,255,255,0.08);color:var(--text-dim,#9B9080);font-family:'DM Sans',sans-serif;font-size:11px;cursor:pointer;border-radius:8px;white-space:nowrap;">📋 Audit</button>
+      <button class="m-admin-tab" data-tab="backups" style="flex:1;min-width:80px;padding:8px 12px;background:transparent;border:1px solid rgba(255,255,255,0.08);color:var(--text-dim,#9B9080);font-family:'DM Sans',sans-serif;font-size:11px;cursor:pointer;border-radius:8px;white-space:nowrap;">💾 Backups</button>
+    </div>
+    <div id="mobileAdminContent" style="flex:1;overflow-y:auto;padding:16px;-webkit-overflow-scrolling:touch;"></div>
+  `;
+
+  document.body.appendChild(modal);
+
+  const closeModal = () => { if (modal.parentNode) modal.parentNode.removeChild(modal); };
+  document.getElementById('mobileAdminClose')?.addEventListener('click', closeModal);
+
+  // Tab switching
+  modal.querySelectorAll('.m-admin-tab').forEach(btn => {
+    btn.addEventListener('click', () => {
+      modal.querySelectorAll('.m-admin-tab').forEach(b => {
+        (b as HTMLElement).style.background = 'transparent';
+        (b as HTMLElement).style.borderColor = 'rgba(255,255,255,0.08)';
+        (b as HTMLElement).style.color = 'var(--text-dim,#9B9080)';
+      });
+      (btn as HTMLElement).style.background = 'rgba(200,169,110,0.12)';
+      (btn as HTMLElement).style.borderColor = 'var(--gold,#C8A96E)';
+      (btn as HTMLElement).style.color = 'var(--gold,#C8A96E)';
+
+      const tab = (btn as HTMLElement).dataset.tab;
+      if (tab === 'users') renderMobileAdminUsers(modal);
+      else if (tab === 'audit') loadMobileAdminAudit(modal);
+      else if (tab === 'backups') loadMobileAdminBackups(modal);
+    });
+  });
+
+  // Initial render
+  renderMobileAdminUsers(modal);
+}
+
+function renderMobileAdminUsers(modal: HTMLElement) {
+  const content = modal.querySelector('#mobileAdminContent');
+  if (!content) return;
+
+  content.innerHTML = `
+    <button onclick="adminCreateUser()" style="width:100%;padding:14px;background:rgba(200,169,110,0.08);border:1px solid rgba(200,169,110,0.2);border-radius:14px;color:var(--gold,#C8A96E);font-family:'DM Sans',sans-serif;font-size:14px;cursor:pointer;margin-bottom:16px;display:flex;align-items:center;gap:10px;justify-content:center;">
+      <span style="font-size:18px;">+</span> Créer un utilisateur
+    </button>
+    <div style="display:flex;flex-direction:column;gap:10px;">
+      ${adminUsers.map(user => `
+        <div style="background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.06);border-radius:14px;padding:14px 16px;">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+            <div>
+              <div style="font-size:15px;font-weight:500;color:var(--text,#EDE8DD);">
+                ${user.firstName || user.name}
+                ${user.disabled ? '<span style="color:#FF453A;font-size:10px;margin-left:6px;">DÉSACTIVÉ</span>' : ''}
+              </div>
+              ${user.email ? `<div style="font-size:12px;color:var(--m-text3,#4A4540);margin-top:2px;">${user.email}</div>` : ''}
+            </div>
+            <div style="font-size:11px;padding:3px 8px;background:rgba(200,169,110,0.1);border:1px solid rgba(200,169,110,0.15);border-radius:6px;color:var(--m-gold,#C8A96E);">${user.role}</div>
+          </div>
+          <div style="font-size:11px;color:var(--m-text3,#4A4540);margin-bottom:10px;">
+            ${user.messages || 0} messages · Dernière connexion : ${user.lastLogin ? new Date(user.lastLogin).toLocaleDateString('fr-FR') : 'Jamais'}
+          </div>
+          <div style="display:flex;gap:6px;flex-wrap:wrap;">
+            <button onclick="adminChangeRole('${user.name}','${user.role}')" style="padding:6px 10px;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.08);border-radius:8px;color:var(--text-dim,#9B9080);font-size:11px;cursor:pointer;">🔧 Rôle</button>
+            <button onclick="adminResetPin('${user.name}')" style="padding:6px 10px;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.08);border-radius:8px;color:var(--text-dim,#9B9080);font-size:11px;cursor:pointer;">🔑 Reset</button>
+            <button onclick="adminToggleDisable('${user.name}',${user.disabled})" style="padding:6px 10px;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.08);border-radius:8px;color:var(--text-dim,#9B9080);font-size:11px;cursor:pointer;">${user.disabled ? '✓ Activer' : '⊗ Désactiver'}</button>
+            <button onclick="adminDeleteUser('${user.name}')" style="padding:6px 10px;background:rgba(255,255,255,0.04);border:1px solid rgba(255,69,58,0.15);border-radius:8px;color:#FF453A;font-size:11px;cursor:pointer;">🗑 Suppr.</button>
+          </div>
+        </div>
+      `).join('')}
+    </div>
+  `;
+}
+
+async function loadMobileAdminAudit(modal: HTMLElement) {
+  const content = modal.querySelector('#mobileAdminContent');
+  if (!content) return;
+  content.innerHTML = '<div style="text-align:center;padding:20px;color:var(--m-text3);">Chargement...</div>';
+  try {
+    const r = await fetch('/api/admin/audit', { headers: { Authorization: `Bearer ${token}` } });
+    const d = await r.json();
+    if (r.ok) {
+      content.innerHTML = (d.logs || []).slice(0, 100).map(log =>
+        `<div style="padding:10px 0;border-bottom:1px solid rgba(255,255,255,0.04);font-size:12px;">
+          <div style="color:var(--m-gold,#C8A96E);font-size:11px;margin-bottom:2px;">${new Date(log.ts).toLocaleString('fr-FR')}</div>
+          <div style="color:var(--text,#EDE8DD);">${log.event}${log.profile ? ` · <span style="color:var(--m-text3);">${log.profile}</span>` : ''}</div>
+        </div>`
+      ).join('') || '<div style="text-align:center;padding:20px;color:var(--m-text3);">Aucun log</div>';
+    }
+  } catch { content.innerHTML = '<div style="color:#FF453A;padding:20px;">Erreur</div>'; }
+}
+
+async function loadMobileAdminBackups(modal: HTMLElement) {
+  const content = modal.querySelector('#mobileAdminContent');
+  if (!content) return;
+  content.innerHTML = '<div style="text-align:center;padding:20px;color:var(--m-text3);">Chargement...</div>';
+  try {
+    const r = await fetch('/api/admin/backups', { headers: { Authorization: `Bearer ${token}` } });
+    const d = await r.json();
+    if (r.ok) {
+      content.innerHTML = `
+        <button onclick="createAdminBackup()" style="width:100%;padding:12px;background:rgba(200,169,110,0.08);border:1px solid rgba(200,169,110,0.2);border-radius:14px;color:var(--gold,#C8A96E);font-size:13px;cursor:pointer;margin-bottom:16px;">💾 Créer un backup</button>
+        ${(d.backups || []).map(b => `
+          <div style="padding:12px;background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.06);border-radius:12px;margin-bottom:8px;">
+            <div style="font-size:14px;color:var(--text);">${b.name}</div>
+            <div style="font-size:11px;color:var(--m-text3);margin-top:4px;">${(b.size/1024).toFixed(2)} KB · ${new Date(b.created).toLocaleString('fr-FR')}</div>
+          </div>
+        `).join('')}
+      `;
+    }
+  } catch { content.innerHTML = '<div style="color:#FF453A;padding:20px;">Erreur</div>'; }
 }
 
 // ── KEYBOARD SHORTCUTS ──────────────────────────────────────
