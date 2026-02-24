@@ -736,10 +736,57 @@ function parseMarkdown(text: string): string {
   // Inline code
   html = html.replace(/`([^`]+)`/g, '<code>$1</code>');
 
+  // Tables — detect block of lines starting with |
+  html = html.replace(/(?:^|\n)((?:\|.+\|[ ]*\n)+)/g, (_, tableBlock: string) => {
+    const rows = tableBlock.trim().split('\n');
+    if (rows.length < 2) return tableBlock;
+
+    // Check that row 2 is a separator (|---|---|)
+    const sepRow = rows[1];
+    if (!/^\|[\s:-]+(\|[\s:-]+)+\|?$/.test(sepRow)) return tableBlock;
+
+    // Parse alignment from separator row
+    const alignCells = sepRow.split('|').filter(c => c.trim() !== '');
+    const aligns = alignCells.map(c => {
+      const t = c.trim();
+      if (t.startsWith(':') && t.endsWith(':')) return 'center';
+      if (t.endsWith(':')) return 'right';
+      return 'left';
+    });
+
+    // Parse header cells
+    const headerCells = rows[0].split('|').filter(c => c.trim() !== '');
+    let thead = '<thead><tr>';
+    headerCells.forEach((cell, i) => {
+      const align = aligns[i] || 'left';
+      thead += `<th style="text-align:${align}">${cell.trim()}</th>`;
+    });
+    thead += '</tr></thead>';
+
+    // Parse data rows
+    let tbody = '<tbody>';
+    for (let r = 2; r < rows.length; r++) {
+      const cells = rows[r].split('|').filter(c => c.trim() !== '');
+      if (cells.length === 0) continue;
+      tbody += '<tr>';
+      cells.forEach((cell, i) => {
+        const align = aligns[i] || 'left';
+        tbody += `<td style="text-align:${align}">${cell.trim()}</td>`;
+      });
+      tbody += '</tr>';
+    }
+    tbody += '</tbody>';
+
+    return `\n<div class="table-wrap"><table>${thead}${tbody}</table></div>\n`;
+  });
+
   // Headers
   html = html.replace(/^### (.+)$/gm, '<h3>$1</h3>');
   html = html.replace(/^## (.+)$/gm, '<h2>$1</h2>');
   html = html.replace(/^# (.+)$/gm, '<h1>$1</h1>');
+
+  // Horizontal rules (must be before bold/italic to avoid confusion with ---, ***)
+  html = html.replace(/^(?:---|\*\*\*|___)[ ]*$/gm, '<hr>');
 
   // Bold
   html = html.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
@@ -749,12 +796,29 @@ function parseMarkdown(text: string): string {
   html = html.replace(/\*(.+?)\*/g, '<em>$1</em>');
   html = html.replace(/_(.+?)_/g, '<em>$1</em>');
 
+  // Strikethrough
+  html = html.replace(/~~(.+?)~~/g, '<del>$1</del>');
+
   // Links
   html = html.replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" target="_blank" rel="noopener">$1</a>');
 
+  // Blockquotes — consecutive > lines grouped together
+  html = html.replace(/(^&gt; .+(?:\n&gt; .+)*)/gm, (match) => {
+    const inner = match.replace(/^&gt; /gm, '');
+    return `<blockquote>${inner}</blockquote>`;
+  });
+
   // Unordered lists
-  html = html.replace(/^[*-] (.+)$/gm, '<li>$1</li>');
-  html = html.replace(/(<li>.*<\/li>)/s, '<ul>$1</ul>');
+  html = html.replace(/(^[*-] .+(?:\n[*-] .+)*)/gm, (match) => {
+    const items = match.split('\n').map(line => `<li>${line.replace(/^[*-] /, '')}</li>`).join('');
+    return `<ul>${items}</ul>`;
+  });
+
+  // Ordered lists — consecutive numbered lines grouped together
+  html = html.replace(/(^\d+\. .+(?:\n\d+\. .+)*)/gm, (match) => {
+    const items = match.split('\n').map(line => `<li>${line.replace(/^\d+\. /, '')}</li>`).join('');
+    return `<ol>${items}</ol>`;
+  });
 
   // Line breaks (double newline = paragraph)
   html = html.replace(/\n\n/g, '</p><p>');
@@ -763,6 +827,10 @@ function parseMarkdown(text: string): string {
   // Clean up empty paragraphs
   html = html.replace(/<p><\/p>/g, '');
   html = html.replace(/<p>\s*<\/p>/g, '');
+
+  // Clean up block elements wrapped in <p> tags
+  html = html.replace(/<p>(<(?:table|div|blockquote|ul|ol|h[1-3]|hr|pre)[^>]*>)/g, '$1');
+  html = html.replace(/(<\/(?:table|div|blockquote|ul|ol|h[1-3]|hr|pre)>)<\/p>/g, '$1');
 
   return html;
 }

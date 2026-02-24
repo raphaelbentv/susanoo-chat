@@ -933,6 +933,46 @@
 }
 
 /* ══════════════════════════════════════════════════════════
+   MOBILE MARKDOWN OVERRIDES
+   ══════════════════════════════════════════════════════════ */
+
+/* Tables — horizontal scroll on small screens */
+.viewport-tablet .msg-bubble .table-wrap,
+.viewport-mobile .msg-bubble .table-wrap {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  margin: 8px -4px;
+  padding: 0 4px;
+}
+
+.viewport-tablet .msg-bubble th,
+.viewport-mobile .msg-bubble th {
+  padding: 5px 8px;
+  font-size: 9px;
+}
+
+.viewport-tablet .msg-bubble td,
+.viewport-mobile .msg-bubble td {
+  padding: 4px 8px;
+  font-size: 11px;
+}
+
+/* Code blocks — scroll on mobile */
+.viewport-tablet .msg-bubble pre,
+.viewport-mobile .msg-bubble pre {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+/* Blockquotes */
+.viewport-tablet .msg-bubble blockquote,
+.viewport-mobile .msg-bubble blockquote {
+  padding: 5px 10px;
+  margin: 6px 0;
+  font-size: 13px;
+}
+
+/* ══════════════════════════════════════════════════════════
    AMBIENT GLOW
    ══════════════════════════════════════════════════════════ */
 .viewport-tablet .bg-layer-1,
