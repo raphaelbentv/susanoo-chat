@@ -24,16 +24,16 @@ jobs:
             # Build TypeScript
             npm run build
 
-            # Restart the service (try systemctl, fallback to process kill + restart)
-            if command -v systemctl &>/dev/null; then
+            # Restart the service
+            if systemctl is-enabled hashirama-chat &>/dev/null; then
               systemctl restart hashirama-chat
             else
-              # Kill any process listening on port 8090
+              # Fallback: kill + restart manually
               lsof -ti:8090 | xargs kill -9 2>/dev/null || true
-              # Also kill any remaining server.js processes in this directory
               pkill -f "/workspace/hashirama-chat-susanoo.*server.js" || true
               sleep 2
               cd /workspace/hashirama-chat-susanoo
+              set -a; source .env 2>/dev/null; set +a
               PORT=8090 nohup node dist/server.js > /var/log/susanoo.log 2>&1 &
             fi
 
