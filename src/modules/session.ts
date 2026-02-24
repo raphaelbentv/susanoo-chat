@@ -241,7 +241,7 @@ export function getAdminOrIsAdminSession(authHeader?: string): { user: string; i
   const db = dbRead();
   const profile = db.profiles[userSession.profile];
 
-  if (profile && profile.isAdmin === true) {
+  if (profile && (profile.isAdmin === true || profile.role === 'admin')) {
     return { user: userSession.profile, isUserSession: true };
   }
 
