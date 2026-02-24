@@ -896,8 +896,9 @@ function showArtifact(artifact: { type: string; code: string; title: string }) {
 <html>
 <head>
   <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <style>
-    body { margin: 0; padding: 20px; display: flex; justify-content: center; align-items: center; min-height: 100vh; background: #f5f5f5; }
+    body { margin: 0; padding: 20px; display: flex; justify-content: center; align-items: center; min-height: 100vh; min-height: 100dvh; background: #f5f5f5; }
     svg { max-width: 100%; height: auto; }
   </style>
 </head>

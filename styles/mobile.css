@@ -973,6 +973,58 @@
 }
 
 /* ══════════════════════════════════════════════════════════
+   MOBILE ARTIFACT PANEL
+   ══════════════════════════════════════════════════════════ */
+
+/* Safe-area insets */
+.viewport-mobile .artifact-panel {
+  padding-top: env(safe-area-inset-top, 0px);
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+  padding-left: env(safe-area-inset-left, 0px);
+  padding-right: env(safe-area-inset-right, 0px);
+  z-index: 52;
+}
+
+/* Header mobile */
+.viewport-tablet .artifact-header,
+.viewport-mobile .artifact-header {
+  padding: 12px 16px;
+  min-height: 56px;
+}
+
+/* Boutons action 44x44 (touch targets Apple HIG) */
+.viewport-tablet .artifact-btn,
+.viewport-mobile .artifact-btn {
+  width: 44px;
+  height: 44px;
+  font-size: 16px;
+  border-radius: 10px;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.viewport-tablet .artifact-btn:active,
+.viewport-mobile .artifact-btn:active {
+  transform: scale(0.88);
+  background: rgba(170, 120, 25, 0.18);
+  border-color: var(--m-gold);
+}
+
+/* Bouton "Voir l'artefact" dans les bulles */
+.viewport-tablet .artifact-preview-btn,
+.viewport-mobile .artifact-preview-btn {
+  padding: 10px 16px;
+  font-size: 12px;
+  border-radius: var(--m-r-md);
+  -webkit-tap-highlight-color: transparent;
+}
+
+.viewport-tablet .artifact-preview-btn:active,
+.viewport-mobile .artifact-preview-btn:active {
+  transform: scale(0.96);
+  background: rgba(170, 120, 25, 0.25);
+}
+
+/* ══════════════════════════════════════════════════════════
    AMBIENT GLOW
    ══════════════════════════════════════════════════════════ */
 .viewport-tablet .bg-layer-1,
