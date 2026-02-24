@@ -24,7 +24,6 @@ const sessionMarker  = $('#sessionMarker');
 const statusLabel    = $('#statusLabel');
 const navAvatar      = $('#navAvatar');
 const sessionTime    = $('#sessionTime');
-const ctxTokens      = $('#ctxTokens');
 const loginModal     = $('#loginModal');
 const loginForm      = $('#loginForm');
 const identifierInput = $('#identifierInput');
@@ -546,57 +545,6 @@ function renderRightPanel() {
     });
   }
 
-  // Context window
-  const accCtx = $('#accContextBody');
-  if (accCtx) {
-    const remaining = sessionExpiresAt ? Math.max(0, sessionExpiresAt - Date.now()) : 0;
-    let html =
-      usageBarHtml('Tokens utilisés', tokenCount.toLocaleString('fr-FR'), '200k', (tokenCount/200000)*100) +
-      statRowHtml('Input session', Math.round(tokenCount*0.7).toLocaleString('fr-FR')) +
-      statRowHtml('Output session', Math.round(tokenCount*0.3).toLocaleString('fr-FR')) +
-      statRowHtml('Messages', String(messages.length)) +
-      '<div class="gold-divider"></div>' +
-      statRowHtml('Coût session', `$${(tokenCount*0.000004).toFixed(3)}`) +
-      statRowHtml('Session expire', formatRemaining(remaining), remaining < 7200000 ? '' : 'success') +
-      statRowHtml('Rôle', role.toUpperCase(), role === 'admin' ? 'success' : '');
-
-    // Statistics section
-    if (statsLoaded && statistics) {
-      html += '<div class="gold-divider" style="margin-top:14px;"></div>';
-      html += '<div style="margin-top:10px;font-size:9px;color:var(--gold);opacity:0.5;text-transform:uppercase;letter-spacing:2px;">Statistiques globales</div>';
-      html += statRowHtml('Conversations', String(statistics.totalConversations));
-      html += statRowHtml('Messages totaux', statistics.totalMessages.toLocaleString('fr-FR'));
-      html += statRowHtml('Tokens totaux', statistics.totalTokens.toLocaleString('fr-FR'));
-      html += statRowHtml('Coût total', `$${statistics.totalCost.toFixed(2)}`);
-      html += statRowHtml('Moy. msg/jour', statistics.averageMessagesPerDay.toFixed(1));
-
-      // Model usage chart (simple bars)
-      if (statistics.modelUsage.length > 0) {
-        html += '<div class="gold-divider" style="margin-top:10px;"></div>';
-        html += '<div style="margin-top:8px;font-size:9px;color:var(--gold);opacity:0.5;text-transform:uppercase;letter-spacing:2px;">Modèles utilisés</div>';
-        for (const model of statistics.modelUsage) {
-          html += `<div style="margin:6px 0;">
-            <div style="display:flex;justify-content:space-between;font-size:9px;margin-bottom:2px;">
-              <span style="color:var(--text-faint);">${model.model}</span>
-              <span style="color:var(--gold);">${model.percentage.toFixed(0)}%</span>
-            </div>
-            <div style="height:3px;background:rgba(170,120,25,0.1);">
-              <div style="height:100%;width:${model.percentage}%;background:var(--gold);"></div>
-            </div>
-          </div>`;
-        }
-      }
-    } else {
-      html += '<div class="gold-divider" style="margin-top:14px;"></div>';
-      html += '<button class="modify-btn" id="loadStatsBtn">Charger les statistiques</button>';
-    }
-
-    accCtx.innerHTML = html;
-
-    // Add event listener for load stats button
-    $('#loadStatsBtn')?.addEventListener('click', () => loadStatistics('all'));
-  }
-
   // System prompt
   const accPrompt = $('#accPromptBody');
   if (accPrompt) {
@@ -980,7 +928,6 @@ function addMessage(r, text, meta) {
   messages.push({ id: Date.now(), role: r, text, time: nowLabel(), meta: meta || (r === 'ai' ? 'claude-sonnet-4-6' : undefined) });
   tokenCount += Math.round(text.length * 0.3);
   renderMessages();
-  if (ctxTokens) ctxTokens.textContent = tokenCount.toLocaleString('fr-FR') + ' tk';
 }
 
 // ══════════════════════════════════════════════════════════
