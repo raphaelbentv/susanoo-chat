@@ -47,6 +47,25 @@ const artifactClose = $('#artifactClose');
 const accAdminSection = $('#accAdminSection');
 const accAdminBody = $('#accAdminBody');
 
+// Mobile DOM refs
+const mobileHeader = $('#mobileHeader');
+const mobileBzone = $('#mobileBzone');
+const mobileInput = $('#mobileInput') as HTMLTextAreaElement;
+const mobileSendBtn = $('#mobileSendBtn');
+const mobileAttachBtn = $('#mobileAttachBtn');
+const mobileTabs = $('#mobileTabs');
+const mobileBackdrop = $('#mobileBackdrop');
+const mobileSheetSessions = $('#mobileSheetSessions');
+const mobileSheetModel = $('#mobileSheetModel');
+const mobileSheetStats = $('#mobileSheetStats');
+const mobileSheetOptions = $('#mobileSheetOptions');
+const mobileSessionsList = $('#mobileSessionsList');
+const mobileModelList = $('#mobileModelList');
+const mobileStatsContent = $('#mobileStatsContent');
+const mobileOptionsContent = $('#mobileOptionsContent');
+const mobileBadge = $('#mobileBadge');
+const mobileStatusText = $('#mobileStatusText');
+
 // ── STATE ───────────────────────────────────────────────────
 let viewport         = 'desktop';
 let sidebarOpen      = true;
@@ -84,6 +103,7 @@ let claudeEnabled = false;
 let currentArtifact = null; // { type: 'html'|'svg'|'react', code: string, title: string }
 let adminUsers = []; // Liste des utilisateurs pour l'admin
 let adminAuditLog = []; // Logs d'audit pour l'admin
+let mobileSheetCurrent = null; // Currently open mobile sheet id
 
 
 const THEMES = [
@@ -381,6 +401,9 @@ function renderConversations() {
       showConversationMenu(el.dataset.id, e.clientX, e.clientY);
     });
   });
+
+  // Also update mobile sessions if sheet is open
+  if (mobileSheetCurrent === 'sessions') renderMobileSessions();
 }
 
 function showConversationMenu(conversationId, x, y) {
@@ -943,8 +966,14 @@ function toggleSidebar() { if (sidebarOpen) closeSidebar(); else openSidebar(); 
 function setViewport(vp) {
   viewport = vp;
   app.className = `app viewport-${vp}`;
-  if (vp === 'desktop') { openSidebar(); sidebarOverlay.classList.remove('visible'); }
-  else closeSidebar();
+  if (vp === 'desktop') {
+    openSidebar();
+    sidebarOverlay.classList.remove('visible');
+    closeMobileSheet();
+  } else {
+    closeSidebar();
+    updateMobileBadge();
+  }
   if (sendBtn) sendBtn.textContent = vp === 'mobile' ? '↑' : 'Envoyer';
 }
 
@@ -1281,7 +1310,10 @@ async function login(identifier, password) {
 
 async function sendMessage() {
   console.log('[DEBUG] sendMessage called');
-  const text = chatInput.value.trim();
+  // Read from mobile input if on mobile/tablet, else desktop
+  const isMobile = viewport === 'mobile' || viewport === 'tablet';
+  const activeInput = (isMobile && mobileInput) ? mobileInput : chatInput;
+  const text = activeInput.value.trim();
   console.log('[DEBUG] text:', text, 'typing:', typing, 'token:', !!token);
   if (!text || typing || !token) {
     console.log('[DEBUG] sendMessage aborted - conditions not met');
@@ -1303,8 +1335,11 @@ async function sendMessage() {
 
   console.log('[DEBUG] Adding user message to UI...');
   addMessage('user', text);
-  chatInput.value = '';
-  chatInput.style.height = 'auto';
+  activeInput.value = '';
+  activeInput.style.height = 'auto';
+  // Also clear the other input
+  if (isMobile && chatInput) { chatInput.value = ''; chatInput.style.height = 'auto'; }
+  else if (!isMobile && mobileInput) { mobileInput.value = ''; mobileInput.style.height = 'auto'; }
 
   console.log('[DEBUG] Saving user message to conversation...');
   // Add user message to conversation
@@ -1819,6 +1854,305 @@ if (!document.getElementById('toast-animations')) {
   document.head.appendChild(style);
 }
 
+// ══════════════════════════════════════════════════════════
+// MOBILE SHEETS & TABS
+// ══════════════════════════════════════════════════════════
+const mobileSheetMap = {
+  sessions: mobileSheetSessions,
+  model: mobileSheetModel,
+  stats: mobileSheetStats,
+  options: mobileSheetOptions,
+};
+
+function openMobileSheet(id) {
+  if (mobileSheetCurrent === id) { closeMobileSheet(); return; }
+  // Close any open sheet first
+  if (mobileSheetCurrent && mobileSheetMap[mobileSheetCurrent]) {
+    mobileSheetMap[mobileSheetCurrent].classList.remove('open');
+  }
+  mobileSheetCurrent = id;
+  mobileBackdrop?.classList.add('open');
+  // Render content before opening
+  if (id === 'sessions') renderMobileSessions();
+  if (id === 'model') renderMobileModels();
+  if (id === 'stats') renderMobileStats();
+  if (id === 'options') renderMobileOptions();
+  // Open with rAF for smooth animation
+  requestAnimationFrame(() => {
+    requestAnimationFrame(() => {
+      if (mobileSheetMap[id]) mobileSheetMap[id].classList.add('open');
+    });
+  });
+  setMobileTab(id);
+}
+
+function closeMobileSheet() {
+  if (!mobileSheetCurrent) return;
+  mobileBackdrop?.classList.remove('open');
+  if (mobileSheetMap[mobileSheetCurrent]) {
+    mobileSheetMap[mobileSheetCurrent].classList.remove('open');
+  }
+  mobileSheetCurrent = null;
+  setMobileTab('chat');
+}
+
+function setMobileTab(id) {
+  mobileTabs?.querySelectorAll('.mobile-tab').forEach(t => t.classList.remove('active'));
+  const tabMap = { sessions: 0, chat: 1, model: 2, stats: 3, options: 4 };
+  const tabs = mobileTabs?.querySelectorAll('.mobile-tab');
+  if (tabs && tabs[tabMap[id] ?? 1]) {
+    tabs[tabMap[id] ?? 1].classList.add('active');
+  }
+}
+
+function renderMobileSessions() {
+  if (!mobileSessionsList) return;
+  let html = `
+    <button class="mobile-new-session-btn" id="mobileNewConvBtn">
+      <div class="mobile-new-session-plus">+</div>
+      <div style="font-size:15px;font-weight:500;color:var(--m-gold);">Nouvelle session impériale</div>
+    </button>`;
+
+  if (conversations.length === 0) {
+    html += `
+      <div class="mobile-empty">
+        <div class="mobile-empty-icon">
+          <svg viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M20.25 8.511c.884.284 1.5 1.128 1.5 2.097v4.286c0 1.136-.847 2.1-1.98 2.193-.34.027-.68.052-1.02.072v3.091l-3-3c-1.354 0-2.694-.055-4.02-.163a2.115 2.115 0 01-.825-.242m9.345-8.334a2.126 2.126 0 00-.476-.095 48.64 48.64 0 00-8.048 0c-1.131.094-1.976 1.057-1.976 2.192v4.286c0 .837.46 1.58 1.155 1.951m9.345-8.334V6.637c0-1.621-1.152-3.026-2.76-3.235A48.455 48.455 0 0011.25 3c-2.115 0-4.198.137-6.24.402-1.608.209-2.76 1.614-2.76 3.235v6.226c0 1.621 1.152 3.026 2.76 3.235.577.075 1.157.14 1.74.194V21l4.155-4.155"/></svg>
+        </div>
+        <div class="mobile-empty-title">Aucune session</div>
+        <div class="mobile-empty-sub">Démarrez une nouvelle conversation avec Hashirama</div>
+      </div>`;
+  } else {
+    for (const c of conversations.filter(x => !x.archived)) {
+      const isActive = c.id === activeConversationId ? ' active' : '';
+      const time = new Date(c.updatedAt).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
+      const initial = c.title ? c.title.charAt(0).toUpperCase() : 'S';
+      html += `
+        <div class="mobile-conv-item${isActive}" data-id="${c.id}">
+          <div class="mobile-conv-avt">${initial}</div>
+          <div class="mobile-conv-info">
+            <div class="mobile-conv-title">${escHtml(c.title || 'Sans titre')}</div>
+            <div class="mobile-conv-preview">${escHtml(c.preview || '')}</div>
+          </div>
+          <div class="mobile-conv-time">${time}</div>
+        </div>`;
+    }
+  }
+
+  mobileSessionsList.innerHTML = html;
+
+  // Attach event listeners
+  mobileSessionsList.querySelector('#mobileNewConvBtn')?.addEventListener('click', async () => {
+    closeMobileSheet();
+    const newConv = await createNewConversation();
+    if (newConv) {
+      activeConversationId = newConv.id;
+      messages = [];
+      renderConversations();
+      renderMessages();
+    }
+  });
+
+  mobileSessionsList.querySelectorAll('.mobile-conv-item').forEach(el => {
+    el.addEventListener('click', () => {
+      switchConversation(el.dataset.id);
+      closeMobileSheet();
+    });
+  });
+}
+
+function renderMobileModels() {
+  if (!mobileModelList) return;
+  const modelIcons = {
+    'claude-opus-4': { emoji: '🔮', bg: 'linear-gradient(135deg, #2A0A2E, #1A0420)' },
+    'claude-sonnet-4': { emoji: '⚡', bg: 'linear-gradient(135deg, #1A1408, #2A1F0A)' },
+    'claude-haiku-4': { emoji: '🌸', bg: 'linear-gradient(135deg, #0A1428, #061020)' },
+  };
+
+  let html = '';
+  for (const m of MODELS) {
+    const icon = modelIcons[m.id] || { emoji: '🤖', bg: 'var(--m-bg3)' };
+    const isActive = m.id === selectedModel;
+    html += `
+      <div class="mobile-model-row" data-model="${m.id}">
+        <div class="mobile-model-icon" style="background:${icon.bg}">${icon.emoji}</div>
+        <div style="flex:1">
+          <div class="mobile-model-name">${m.name}</div>
+          <div class="mobile-model-desc">${m.desc}</div>
+        </div>
+        <div class="mobile-model-check${isActive ? ' active' : ''}"></div>
+      </div>`;
+  }
+  mobileModelList.innerHTML = html;
+
+  mobileModelList.querySelectorAll('.mobile-model-row').forEach(el => {
+    el.addEventListener('click', () => {
+      selectedModel = el.dataset.model;
+      localStorage.setItem('hashirama_model', selectedModel);
+      renderMobileModels();
+      renderRightPanel();
+      renderStatusWidget();
+      setTimeout(closeMobileSheet, 280);
+    });
+  });
+}
+
+function renderMobileStats() {
+  if (!mobileStatsContent) return;
+  const remaining = sessionExpiresAt ? Math.max(0, sessionExpiresAt - Date.now()) : 0;
+  const tokenPct = (tokenCount / 200000) * 100;
+  const modelName = MODELS.find(m => m.id === selectedModel)?.name || selectedModel;
+
+  mobileStatsContent.innerHTML = `
+    <div style="padding:16px 20px 20px;display:flex;flex-direction:column;gap:10px;">
+      <div class="mobile-stat-card">
+        <div class="mobile-stat-label">Tokens utilisés</div>
+        <div class="mobile-stat-value">${tokenCount.toLocaleString('fr-FR')}</div>
+        <div class="mobile-stat-sub">sur 200 000 disponibles</div>
+        <div class="mobile-stat-bar"><div class="mobile-stat-bar-fill" style="width:${Math.max(0.3, tokenPct)}%"></div></div>
+      </div>
+      <div class="mobile-stat-grid">
+        <div class="mobile-stat-sm">
+          <div class="mobile-stat-label">Messages</div>
+          <div class="mobile-stat-sm-val">${messages.length}</div>
+        </div>
+        <div class="mobile-stat-sm">
+          <div class="mobile-stat-label">Expire dans</div>
+          <div class="mobile-stat-sm-val">${remaining > 0 ? formatRemaining(remaining) : '--'}</div>
+        </div>
+      </div>
+      <div class="mobile-stat-session">
+        <div class="mobile-badge-dot" style="width:6px;height:6px;"></div>
+        <div style="flex:1;font-size:13px;color:var(--m-text2);">Session active · Rôle : ${role.toUpperCase()}</div>
+        <div style="font-size:13px;color:var(--m-text3);font-weight:300;">${modelName}</div>
+      </div>
+    </div>`;
+}
+
+function renderMobileOptions() {
+  if (!mobileOptionsContent) return;
+
+  mobileOptionsContent.innerHTML = `
+    <div class="mobile-setting-group">
+      <div class="mobile-setting-item" id="mobileOptDeepSearch">
+        <div class="mobile-setting-icon purple">
+          <svg viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09z"/></svg>
+        </div>
+        <div class="mobile-setting-text">
+          <div class="mobile-setting-name">Recherche approfondie</div>
+          <div class="mobile-setting-sub">Web search + analyse multi-sources</div>
+        </div>
+        <button class="mobile-toggle${deepSearchEnabled ? ' gold' : ''}" id="mobileToggleDeepSearch"></button>
+      </div>
+      <div class="mobile-setting-item">
+        <div class="mobile-setting-icon blue">
+          <svg viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M3.75 13.5l10.5-11.25L12 10.5h8.25L9.75 21.75 12 13.5H3.75z"/></svg>
+        </div>
+        <div class="mobile-setting-text">
+          <div class="mobile-setting-name">Stream temps réel</div>
+          <div class="mobile-setting-sub">Affichage progressif des réponses</div>
+        </div>
+        <button class="mobile-toggle on"></button>
+      </div>
+      <div class="mobile-setting-item">
+        <div class="mobile-setting-icon green">
+          <svg viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M20.25 6.375c0 2.278-3.694 4.125-8.25 4.125S3.75 8.653 3.75 6.375m16.5 0c0-2.278-3.694-4.125-8.25-4.125S3.75 4.097 3.75 6.375m16.5 0v11.25c0 2.278-3.694 4.125-8.25 4.125s-8.25-1.847-8.25-4.125V6.375m16.5 2.625c0 2.278-3.694 4.125-8.25 4.125s-8.25-1.847-8.25-4.125"/></svg>
+        </div>
+        <div class="mobile-setting-text">
+          <div class="mobile-setting-name">Mémoire contextuelle</div>
+          <div class="mobile-setting-sub">Retenir les préférences</div>
+        </div>
+        <button class="mobile-toggle on"></button>
+      </div>
+    </div>
+    <div class="mobile-setting-group" style="margin-top:12px;">
+      <div class="mobile-setting-item">
+        <div class="mobile-setting-icon orange">
+          <svg viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126z"/></svg>
+        </div>
+        <div class="mobile-setting-text">
+          <div class="mobile-setting-name">Statut du service</div>
+          <div class="mobile-setting-sub">API Anthropic · Opérationnel</div>
+        </div>
+        <div class="mobile-status-inline">
+          <div class="mobile-badge-dot" style="width:5px;height:5px;"></div>
+          <span>EN LIGNE</span>
+        </div>
+      </div>
+    </div>
+    <div style="padding:12px 20px 0;">
+      <div class="mobile-sheet-title" style="text-align:left;padding:0 0 8px;">THÈME VISUEL</div>
+    </div>
+    <div class="mobile-theme-grid" id="mobileThemeGrid">
+      ${THEMES.map(t => `
+        <div class="mobile-theme-card${currentTheme === t.id ? ' active' : ''}" data-theme="${t.id}">
+          <div class="mobile-theme-colors">
+            <div style="background:${t.primary}"></div>
+            <div style="background:${t.bg}"></div>
+            <div style="background:${t.accent}"></div>
+          </div>
+          <div class="mobile-theme-name">${t.icon} ${t.name}</div>
+        </div>
+      `).join('')}
+    </div>
+    <div class="mobile-setting-group last" style="margin-top:16px;">
+      <div class="mobile-setting-item" id="mobileLogout">
+        <div class="mobile-setting-icon red">
+          <svg viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15.75 9V5.25A2.25 2.25 0 0013.5 3h-6a2.25 2.25 0 00-2.25 2.25v13.5A2.25 2.25 0 007.5 21h6a2.25 2.25 0 002.25-2.25V15M12 9l-3 3m0 0l3 3m-3-3h12.75"/></svg>
+        </div>
+        <div class="mobile-setting-text">
+          <div class="mobile-setting-name" style="color:var(--danger);">Déconnexion</div>
+          <div class="mobile-setting-sub">${profile || 'non connecté'} · ${role}</div>
+        </div>
+        <div class="mobile-setting-arrow">
+          <svg viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M8.25 4.5l7.5 7.5-7.5 7.5"/></svg>
+        </div>
+      </div>
+    </div>`;
+
+  // Attach event listeners
+  setTimeout(() => {
+    $('#mobileToggleDeepSearch')?.addEventListener('click', () => {
+      deepSearchEnabled = !deepSearchEnabled;
+      localStorage.setItem('hashirama_deep_search', String(deepSearchEnabled));
+      renderMobileOptions();
+      renderRightPanel();
+    });
+
+    $('#mobileThemeGrid')?.querySelectorAll('.mobile-theme-card').forEach(el => {
+      el.addEventListener('click', () => {
+        applyTheme(el.dataset.theme);
+        renderMobileOptions();
+      });
+    });
+
+    $('#mobileLogout')?.addEventListener('click', () => {
+      closeMobileSheet();
+      clearSession();
+      showLogin();
+    });
+  }, 10);
+}
+
+function updateMobileBadge() {
+  if (!mobileStatusText) return;
+  if (token && profile) {
+    mobileStatusText.textContent = role === 'admin' ? 'ADMIN' : 'ACTIF';
+  } else {
+    mobileStatusText.textContent = 'HORS LIGNE';
+    if (mobileBadge) {
+      mobileBadge.style.background = 'rgba(255,69,58,0.1)';
+      mobileBadge.style.borderColor = 'rgba(255,69,58,0.18)';
+    }
+    const dot = mobileBadge?.querySelector('.mobile-badge-dot');
+    if (dot) {
+      (dot as HTMLElement).style.background = 'var(--danger)';
+      (dot as HTMLElement).style.boxShadow = '0 0 6px var(--danger)';
+    }
+    if (mobileStatusText) (mobileStatusText as HTMLElement).style.color = 'var(--danger)';
+  }
+}
+
 // ── KEYBOARD SHORTCUTS ──────────────────────────────────────
 function handleGlobalShortcuts(e) {
   const isMac = navigator.platform.toUpperCase().indexOf('MAC') >= 0;
@@ -1828,8 +2162,9 @@ function handleGlobalShortcuts(e) {
   const target = e.target;
   const isInput = target.tagName === 'INPUT' || target.tagName === 'TEXTAREA';
 
-  // Esc: Close modals
+  // Esc: Close modals and mobile sheets
   if (e.key === 'Escape') {
+    if (mobileSheetCurrent) { closeMobileSheet(); return; }
     if (!loginModal.classList.contains('hidden')) loginModal.classList.add('hidden');
     if (optionsModal && !optionsModal.classList.contains('hidden')) optionsModal.classList.add('hidden');
     return;
@@ -2154,6 +2489,36 @@ artifactClose?.addEventListener('click', hideArtifact);
 artifactCopy?.addEventListener('click', copyArtifactCode);
 artifactDownload?.addEventListener('click', downloadArtifact);
 
+// ── MOBILE EVENT LISTENERS ──────────────────────────────────
+// Mobile tab clicks
+mobileTabs?.querySelectorAll('.mobile-tab').forEach(tab => {
+  tab.addEventListener('click', () => {
+    const sheet = (tab as HTMLElement).dataset.sheet;
+    if (sheet === 'chat') {
+      closeMobileSheet();
+    } else {
+      openMobileSheet(sheet);
+    }
+  });
+});
+
+// Mobile backdrop click closes sheet
+mobileBackdrop?.addEventListener('click', closeMobileSheet);
+
+// Mobile send button
+mobileSendBtn?.addEventListener('click', sendMessage);
+
+// Mobile input auto-resize
+mobileInput?.addEventListener('input', () => {
+  mobileInput.style.height = 'auto';
+  mobileInput.style.height = Math.min(mobileInput.scrollHeight, 88) + 'px';
+});
+
+// Mobile input enter to send
+mobileInput?.addEventListener('keydown', (e) => {
+  if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage(); }
+});
+
 // Admin section visibility on login
 function showAdminSection() {
   console.log('[DEBUG] showAdminSection called - isAdmin:', isAdmin, 'accAdminSection:', !!accAdminSection);
@@ -2271,6 +2636,7 @@ async function init() {
     navAvatar.textContent = profile.charAt(0).toUpperCase();
     startSessionTimer();
     updateSessionDisplay();
+    updateMobileBadge();
     loadHistory();
 
     // Sync theme with server
