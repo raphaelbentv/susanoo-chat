@@ -44,11 +44,12 @@
 .viewport-mobile .sidebar-overlay { display: none !important; }
 
 /* ── APP FRAME OVERRIDE ───────────────────────────────── */
-.viewport-tablet,
-.viewport-mobile {
-  width: 100%; height: 100vh;
-  margin: 0; border: none;
-  box-shadow: none;
+.app.viewport-tablet,
+.app.viewport-mobile {
+  width: 100% !important; max-width: 100% !important;
+  height: 100vh !important; height: 100dvh !important;
+  margin: 0 !important; border: none !important;
+  box-shadow: none !important; border-radius: 0 !important;
   font-family: 'DM Sans', -apple-system, sans-serif;
 }
 
