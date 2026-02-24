@@ -16,7 +16,9 @@ export type AuditEvent =
   | 'memory_cleared'
   | 'backup_created'
   | 'admin_profiles_list'
-  | 'preferences_updated';
+  | 'preferences_updated'
+  | 'welcome_email_sent'
+  | 'welcome_email_failed';
 
 export interface AuditEntry {
   ts: string;

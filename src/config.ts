@@ -47,11 +47,22 @@ export const CONFIG = {
   BACKUP_INTERVAL_MS: Number(process.env.BACKUP_INTERVAL_MS) || 6 * 60 * 60 * 1000,
   BACKUP_MAX_COUNT: Number(process.env.BACKUP_MAX_COUNT) || 10,
 
+  // SMTP
+  SMTP: {
+    HOST: process.env.SMTP_HOST || '',
+    PORT: Number(process.env.SMTP_PORT) || 587,
+    SECURE: process.env.SMTP_SECURE === 'true',
+    USER: process.env.SMTP_USER || '',
+    PASS: process.env.SMTP_PASS || '',
+    FROM_NAME: process.env.SMTP_FROM_NAME || 'Hashirama',
+    FROM_EMAIL: process.env.SMTP_FROM_EMAIL || '',
+  },
+
   // Password policy
   PASSWORD: {
     MIN_LENGTH: 8,
-    REQUIRE_UPPER: true,
-    REQUIRE_LOWER: true,
+    REQUIRE_UPPER: false,
+    REQUIRE_LOWER: false,
     REQUIRE_DIGIT: true,
     MAX_AGE_DAYS: Number(process.env.PIN_MAX_AGE_DAYS) || 90,
   },

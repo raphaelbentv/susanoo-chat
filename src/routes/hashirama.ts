@@ -1,13 +1,13 @@
 import type { IncomingMessage, ServerResponse } from 'http';
 import { json } from '../utils/http.js';
-import { getSession } from '../modules/session.js';
+import { getAnySession } from '../modules/session.js';
 import { hasPermission } from '../modules/rbac.js';
 import { getHashiramaStatus } from '../modules/bridge.js';
 import { log } from '../utils/logger.js';
 
 // GET /api/hashirama/status - Get real Hashirama API consumption
 export async function handleHashiramaStatus(req: IncomingMessage, res: ServerResponse): Promise<void> {
-  const session = getSession(req.headers.authorization);
+  const session = getAnySession(req.headers.authorization);
   if (!session) {
     return json(res, 401, { error: 'unauthorized' });
   }

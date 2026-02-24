@@ -401,19 +401,19 @@ input[type=range]::-webkit-slider-thumb {
 .msg-content { max-width: calc(100% - 40px); }
 .msg-bubble {
   padding: 11px 16px;
-  font-family: var(--font-body); font-size: 12px; line-height: 1.72;
+  font-family: var(--font-body); font-size: 14px; line-height: 1.72;
   border: 1px solid; white-space: pre-wrap;
 }
 .msg.ai .msg-bubble {
   background: rgba(170,120,25,0.04);
   border-color: rgba(170,120,25,0.09);
-  color: rgba(255,255,255,0.92);
+  color: rgba(255,255,255,0.95);
 }
 .msg.user .msg-bubble {
-  font-size: 14px;
+  font-size: 16px;
   background: rgba(200,158,28,0.07);
   border-color: rgba(200,158,28,0.18);
-  color: rgba(255,255,255,0.85);
+  color: rgba(255,255,255,0.95);
 }
 .msg-meta {
   font-family: var(--font-mono); font-size: 13px;
@@ -428,18 +428,18 @@ input[type=range]::-webkit-slider-thumb {
   margin: 12px 0 8px 0;
   font-weight: 700;
 }
-.msg-bubble h1 { font-size: 16px; letter-spacing: 1px; }
-.msg-bubble h2 { font-size: 14px; letter-spacing: 0.8px; }
-.msg-bubble h3 { font-size: 13px; letter-spacing: 0.6px; }
+.msg-bubble h1 { font-size: 18px; letter-spacing: 1px; }
+.msg-bubble h2 { font-size: 16px; letter-spacing: 0.8px; }
+.msg-bubble h3 { font-size: 15px; letter-spacing: 0.6px; }
 
 .msg-bubble code {
   font-family: var(--font-mono);
-  font-size: 11px;
+  font-size: 13px;
   background: rgba(0, 0, 0, 0.3);
   border: 1px solid rgba(170, 120, 25, 0.2);
   padding: 2px 6px;
   border-radius: 3px;
-  color: rgba(255, 215, 0, 0.9);
+  color: rgba(255, 220, 50, 1);
 }
 
 .msg-bubble pre {
@@ -456,9 +456,9 @@ input[type=range]::-webkit-slider-thumb {
   background: none;
   border: none;
   padding: 0;
-  font-size: 11px;
+  font-size: 13px;
   line-height: 1.5;
-  color: rgba(255, 255, 255, 0.85);
+  color: rgba(255, 255, 255, 0.92);
 }
 
 .msg-bubble a {
@@ -582,12 +582,12 @@ input[type=range]::-webkit-slider-thumb {
 
 .input-box textarea {
   flex: 1; background: transparent; border: none; outline: none;
-  font-family: var(--font-body); font-size: 12px;
-  color: rgba(255,215,90,0.92); resize: none;
+  font-family: var(--font-body); font-size: 14px;
+  color: rgba(255,220,90,1); resize: none;
   max-height: 100px; line-height: 1.5; scrollbar-width: none;
 }
 .input-box textarea::-webkit-scrollbar { display: none; }
-.input-box textarea::placeholder { color: rgba(170,120,25,0.55); }
+.input-box textarea::placeholder { color: rgba(190,140,40,0.70); }
 
 .input-actions { display: flex; gap: 8px; align-items: center; flex-shrink: 0; }
 

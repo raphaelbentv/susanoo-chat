@@ -1,6 +1,6 @@
 import type { IncomingMessage, ServerResponse } from 'http';
 import { json } from '../utils/http.js';
-import { getSession } from '../modules/session.js';
+import { getAnySession as getSession } from '../modules/session.js';
 import { hasPermission } from '../modules/rbac.js';
 import { log } from '../utils/logger.js';
 import { calculateStatistics } from '../modules/statistics.js';

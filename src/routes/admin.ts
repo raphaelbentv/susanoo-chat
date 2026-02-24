@@ -2,7 +2,8 @@ import type { IncomingMessage, ServerResponse } from 'http';
 import { json, parseBody, parseUrl } from '../utils/http.js';
 import { dbRead, dbWrite } from '../modules/database.js';
 import { createAdminSession, getAdminOrIsAdminSession } from '../modules/session.js';
-import { hashPin, genSalt } from '../modules/crypto.js';
+import { hashPin, genSalt, generatePassword } from '../modules/crypto.js';
+import { sendWelcomeEmail } from '../modules/email.js';
 import { limiterCheck, limiterFail, limiterReset, loginKey, getClientIp } from '../modules/ratelimit.js';
 import { audit, readAuditLog } from '../modules/audit.js';
 import { validatePin, isPinExpired } from '../modules/auth.js';
@@ -50,6 +51,71 @@ export async function handleAdminLogin(req: IncomingMessage, res: ServerResponse
   }
 }
 
+export async function handleCreateProfile(req: IncomingMessage, res: ServerResponse): Promise<void> {
+  const adminSession = getAdminOrIsAdminSession(req.headers.authorization);
+  if (!adminSession) {
+    return json(res, 401, { error: 'unauthorized' });
+  }
+
+  try {
+    const bodyStr = await parseBody(req);
+    const data = JSON.parse(bodyStr || '{}');
+
+    const { valid, errors } = validate(data as Record<string, unknown>, {
+      firstName: { type: 'string', required: true, minLength: 1, maxLength: 64 },
+      email: { type: 'string', required: true, minLength: 5, maxLength: 128, pattern: /^[^\s@]+@[^\s@]+\.[^\s@]+$/ },
+      role: { type: 'string', required: true, oneOf: ['user', 'admin'] },
+    });
+    if (!valid) {
+      return json(res, 400, { error: 'validation_failed', details: errors });
+    }
+
+    const firstName = String(data.firstName).trim();
+    const email = String(data.email).trim().toLowerCase();
+    const role = String(data.role) as Role;
+    const profileKey = email;
+
+    const db = dbRead();
+    if (db.profiles[profileKey]) {
+      return json(res, 409, { error: 'profile_already_exists' });
+    }
+
+    const password = generatePassword();
+
+    const salt = genSalt();
+    const now = new Date().toISOString();
+    db.profiles[profileKey] = {
+      salt,
+      pinHash: hashPin(password, salt),
+      role,
+      createdAt: now,
+      pinChangedAt: now,
+      disabled: false,
+      email,
+      firstName,
+      preferences: { theme: 'emperor' },
+    };
+    db.memory[profileKey] = [];
+    dbWrite(db);
+
+    let emailSent = false;
+    try {
+      emailSent = await sendWelcomeEmail(email, firstName, password);
+      audit(emailSent ? 'welcome_email_sent' : 'welcome_email_failed', {
+        actor: adminSession.user, profile: profileKey,
+      });
+    } catch (e) {
+      audit('welcome_email_failed', { actor: adminSession.user, profile: profileKey, error: (e as Error).message });
+    }
+
+    audit('profile_created', { actor: adminSession.user, profile: profileKey, role, email, firstName });
+    return json(res, 201, { ok: true, profile: profileKey, role, generatedPassword: password, emailSent });
+  } catch (e) {
+    log('error', 'create_profile_failed', { error: (e as Error).message });
+    return json(res, 500, { error: 'create_profile_failed' });
+  }
+}
+
 export async function handleListProfiles(req: IncomingMessage, res: ServerResponse): Promise<void> {
   const adminSession = getAdminOrIsAdminSession(req.headers.authorization);
   if (!adminSession) {
@@ -67,6 +133,8 @@ export async function handleListProfiles(req: IncomingMessage, res: ServerRespon
       createdAt: p.createdAt || null,
       lastLogin: p.lastLogin || null,
       pinExpired: isPinExpired(p),
+      email: p.email || null,
+      firstName: p.firstName || null,
     };
   });
 

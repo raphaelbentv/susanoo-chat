@@ -5,20 +5,20 @@
 
 [data-theme="emperor"] {
   /* ── Colors ─────────────────────────────────────────── */
-  --gold: #c8a020;
-  --gold-dim: rgba(200,158,28,0.35);
+  --gold: #d4ad2b;
+  --gold-dim: rgba(212,173,43,0.40);
   --gold-faint: rgba(170,120,25,0.09);
-  --gold-glow: rgba(200,158,28,0.18);
+  --gold-glow: rgba(212,173,43,0.22);
   --bg: #050408;
   --surface: rgba(6,5,4,0.97);
   --surface2: rgba(10,8,5,0.98);
   --border: rgba(170,120,25,0.20);
   --border-dim: rgba(170,120,25,0.08);
   --text: rgba(255,255,255,0.95);
-  --text-dim: rgba(255,255,255,0.70);
-  --text-faint: rgba(255,255,255,0.40);
-  --danger: #c0392b;
-  --success: #7a8a20;
+  --text-dim: rgba(255,255,255,0.78);
+  --text-faint: rgba(255,255,255,0.50);
+  --danger: #e74c3c;
+  --success: #8fa828;
 
   /* ── Typography ─────────────────────────────────────── */
   --font-display: 'Cinzel', serif;
@@ -29,13 +29,22 @@
 /* ── Background Gradients ──────────────────────────────── */
 [data-theme="emperor"] .bg-layer-1 {
   background:
-    radial-gradient(ellipse 70% 60% at 50% 100%, rgba(170,120,25,0.07), transparent 58%),
-    radial-gradient(ellipse 35% 35% at 50% 70%, rgba(90,60,8,0.08), transparent 50%),
-    repeating-linear-gradient(45deg, transparent, transparent 29px, rgba(170,120,25,0.007) 30px);
+    radial-gradient(ellipse 60% 50% at 50% 100%, rgba(170,120,25,0.08), transparent 55%),
+    radial-gradient(ellipse 40% 40% at 20% 20%, rgba(90,60,8,0.05), transparent 60%),
+    radial-gradient(ellipse 30% 30% at 80% 30%, rgba(140,100,20,0.04), transparent 50%),
+    radial-gradient(circle 2px at 15% 25%, rgba(212,173,43,0.12), transparent 3px),
+    radial-gradient(circle 2px at 78% 18%, rgba(212,173,43,0.10), transparent 3px),
+    radial-gradient(circle 1.5px at 45% 65%, rgba(212,173,43,0.08), transparent 3px),
+    radial-gradient(circle 1px at 88% 72%, rgba(212,173,43,0.07), transparent 2px),
+    radial-gradient(circle 1.5px at 25% 85%, rgba(212,173,43,0.06), transparent 3px),
+    repeating-linear-gradient(0deg, transparent, transparent 119px, rgba(170,120,25,0.018) 120px),
+    repeating-linear-gradient(90deg, transparent, transparent 119px, rgba(170,120,25,0.018) 120px);
 }
 
 [data-theme="emperor"] .bg-layer-2 {
-  background: radial-gradient(ellipse 80% 75% at 50% 50%, transparent 30%, rgba(3,2,6,0.85) 100%);
+  background:
+    radial-gradient(ellipse 50% 40% at 50% 50%, rgba(140,100,20,0.03), transparent 60%),
+    radial-gradient(ellipse 90% 85% at 50% 50%, transparent 25%, rgba(3,2,6,0.90) 100%);
 }
 
 /* ── Statue (Emperor-specific) ─────────────────────────── */

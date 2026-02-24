@@ -2,10 +2,10 @@ import type { IncomingMessage, ServerResponse } from 'http';
 import { json, parseBody } from '../utils/http.js';
 import { dbRead, dbWrite } from '../modules/database.js';
 import { createSession, createAdminSession } from '../modules/session.js';
-import { hashPin, genSalt } from '../modules/crypto.js';
+import { hashPin } from '../modules/crypto.js';
 import { limiterCheck, limiterFail, limiterReset, loginKey, getClientIp } from '../modules/ratelimit.js';
 import { audit } from '../modules/audit.js';
-import { validatePin, isPinExpired } from '../modules/auth.js';
+import { isPinExpired } from '../modules/auth.js';
 import { log } from '../utils/logger.js';
 import { CONFIG } from '../config.js';
 import { validate } from '../modules/validate.js';
@@ -71,41 +71,11 @@ export async function handleUnifiedLogin(req: IncomingMessage, res: ServerRespon
       return json(res, 429, { error: 'too_many_attempts', retryAfterMs: check.retryAfterMs });
     }
 
-    // New profile creation
+    // Profile must exist — self-registration disabled (admin creates accounts)
     if (!db.profiles[identifier]) {
-      const pinErrors = validatePin(password);
-      if (pinErrors.length > 0) {
-        return json(res, 400, { error: 'password_policy_failed', details: pinErrors });
-      }
-
-      const salt = genSalt();
-      const now = new Date().toISOString();
-      db.profiles[identifier] = {
-        salt,
-        pinHash: hashPin(password, salt),
-        role: 'user',
-        createdAt: now,
-        pinChangedAt: now,
-        disabled: false,
-        preferences: {
-          theme: 'emperor', // Default theme
-        },
-      };
-      db.memory[identifier] = [];
-      dbWrite(db);
-      audit('profile_created', { profile: identifier, ip: getClientIp(req) });
-      limiterReset(key);
-
-      const token = createSession(identifier, 'user');
-      return json(res, 200, {
-        token,
-        identifier,
-        role: 'user',
-        type: 'profile',
-        expiresAt: Date.now() + CONFIG.SESSION_TTL_MS,
-        created: true,
-        preferences: { theme: 'emperor' },
-      });
+      limiterFail(key);
+      audit('login_failed', { profile: identifier, ip: getClientIp(req), reason: 'unknown_profile' });
+      return json(res, 401, { error: 'invalid_credentials' });
     }
 
     // Existing profile login

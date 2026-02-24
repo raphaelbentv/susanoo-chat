@@ -141,6 +141,30 @@ export function getAdminSession(authHeader?: string): AdminSession | null {
   return session;
 }
 
+/**
+ * Get session for any authenticated user (regular or admin).
+ * Returns a Session-compatible object so all routes work for admins too.
+ */
+export function getAnySession(authHeader?: string): Session | null {
+  // Try regular session first
+  const session = getSession(authHeader);
+  if (session) return session;
+
+  // Fall back to admin session, converting to Session shape
+  const adminSession = getAdminSession(authHeader);
+  if (adminSession) {
+    return {
+      profile: adminSession.user,
+      role: 'admin' as Role,
+      createdAt: adminSession.createdAt,
+      expiresAt: adminSession.expiresAt,
+      _token: adminSession._token,
+    };
+  }
+
+  return null;
+}
+
 export function refreshSession(oldToken: string): { token: string; expiresAt: number; profile: string; role: Role } | null {
   const session = SESSIONS.get(oldToken);
   if (!session || Date.now() > session.expiresAt) {

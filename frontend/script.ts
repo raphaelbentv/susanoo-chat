@@ -1286,9 +1286,15 @@ async function login(identifier, password) {
     throw new Error(d.error || 'Erreur de connexion');
   }
 
-  // Handle profile login
-  isAdmin = d.isAdmin || false;
+  // Handle login — detect admin from type or isAdmin flag
+  isAdmin = d.isAdmin || d.type === 'admin' || d.role === 'admin' || false;
   sessionStorage.setItem('hashi_is_admin', String(isAdmin));
+
+  // Set admin token for admin API calls
+  if (isAdmin) {
+    adminToken = d.token;
+    sessionStorage.setItem('hashi_admin_token', d.token);
+  }
 
   saveSession(d.token, d.identifier, d.role || 'user', d.expiresAt || Date.now() + 86400000);
 
@@ -1509,7 +1515,8 @@ function renderAdminUsers() {
         <div class="admin-user-card" data-user="${user.name}">
           <div class="admin-user-info">
             <div class="admin-user-name">
-              ${user.name}
+              ${user.firstName ? `${user.firstName} ` : ''}${!user.firstName ? user.name : ''}
+              ${user.email ? `<span style="color:var(--text-dim);font-size:10px;margin-left:4px;">${user.email}</span>` : (!user.firstName ? '' : '')}
               ${user.disabled ? '<span class="admin-badge disabled">Désactivé</span>' : ''}
               ${user.pinExpired ? '<span class="admin-badge expired">PIN expiré</span>' : ''}
             </div>
@@ -1546,7 +1553,7 @@ async function adminChangeRole(username: string, currentRole: string) {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': `Bearer ${adminToken}`
+        'Authorization': `Bearer ${adminToken || token}`
       },
       body: JSON.stringify({ profile: username, role: newRole })
     });
@@ -1573,7 +1580,7 @@ async function adminResetPin(username: string) {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': `Bearer ${adminToken}`
+        'Authorization': `Bearer ${adminToken || token}`
       },
       body: JSON.stringify({ profile: username, newPin })
     });
@@ -1599,7 +1606,7 @@ async function adminToggleDisable(username: string, currentlyDisabled: boolean) 
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': `Bearer ${adminToken}`
+        'Authorization': `Bearer ${adminToken || token}`
       },
       body: JSON.stringify({ profile: username, disabled: !currentlyDisabled })
     });
@@ -1630,7 +1637,7 @@ async function adminDeleteUser(username: string) {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': `Bearer ${adminToken}`
+        'Authorization': `Bearer ${adminToken || token}`
       },
       body: JSON.stringify({ profile: username })
     });
@@ -1648,47 +1655,144 @@ async function adminDeleteUser(username: string) {
 }
 
 async function adminCreateUser() {
-  const username = prompt('Nom du nouvel utilisateur:\n(Sera converti en minuscules)');
-  if (!username) return;
+  const modalEl = document.createElement('div');
+  modalEl.id = 'createUserModal';
+  modalEl.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.85);z-index:9999;display:flex;align-items:center;justify-content:center;';
 
-  const normalizedUsername = username.trim().toLowerCase();
-  if (!normalizedUsername) {
-    alert('Nom d\'utilisateur invalide');
-    return;
-  }
+  modalEl.innerHTML = `
+    <div style="background:var(--surface,#0a0805);border:1px solid var(--border,rgba(170,120,25,0.20));padding:28px 32px;max-width:440px;width:90%;">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;">
+        <div style="font-family:var(--font-display,'Cinzel',serif);font-size:14px;color:var(--gold,#c8a020);text-transform:uppercase;letter-spacing:3px;">
+          Nouvel Utilisateur
+        </div>
+        <button id="createUserClose" style="background:none;border:1px solid var(--border-dim,rgba(170,120,25,0.10));width:28px;height:28px;cursor:pointer;color:var(--text-dim,rgba(255,255,255,0.5));font-size:14px;display:flex;align-items:center;justify-content:center;">✕</button>
+      </div>
+      <form id="createUserForm" style="display:flex;flex-direction:column;gap:14px;">
+        <div>
+          <label style="display:block;font-size:10px;color:var(--text-faint,rgba(255,255,255,0.35));text-transform:uppercase;letter-spacing:2px;margin-bottom:6px;">Prénom</label>
+          <input id="createUserFirstName" type="text" required autocomplete="off"
+            style="width:100%;padding:10px 12px;background:var(--gold-faint,rgba(170,120,25,0.04));border:1px solid var(--border,rgba(170,120,25,0.20));color:var(--text,rgba(255,255,255,0.95));font-family:var(--font-body,'Inter',sans-serif);font-size:14px;outline:none;box-sizing:border-box;"
+            placeholder="Jean">
+        </div>
+        <div>
+          <label style="display:block;font-size:10px;color:var(--text-faint,rgba(255,255,255,0.35));text-transform:uppercase;letter-spacing:2px;margin-bottom:6px;">Email</label>
+          <input id="createUserEmail" type="email" required autocomplete="off"
+            style="width:100%;padding:10px 12px;background:var(--gold-faint,rgba(170,120,25,0.04));border:1px solid var(--border,rgba(170,120,25,0.20));color:var(--text,rgba(255,255,255,0.95));font-family:var(--font-body,'Inter',sans-serif);font-size:14px;outline:none;box-sizing:border-box;"
+            placeholder="jean@example.com">
+        </div>
+        <div>
+          <label style="display:block;font-size:10px;color:var(--text-faint,rgba(255,255,255,0.35));text-transform:uppercase;letter-spacing:2px;margin-bottom:6px;">Rôle</label>
+          <select id="createUserRole"
+            style="width:100%;padding:10px 12px;background:var(--gold-faint,rgba(170,120,25,0.04));border:1px solid var(--border,rgba(170,120,25,0.20));color:var(--text,rgba(255,255,255,0.95));font-family:var(--font-body,'Inter',sans-serif);font-size:14px;outline:none;box-sizing:border-box;">
+            <option value="user">Utilisateur</option>
+            <option value="admin">Administrateur</option>
+          </select>
+        </div>
+        <div style="background:rgba(170,120,25,0.06);border:1px solid var(--border-dim,rgba(170,120,25,0.10));padding:10px 14px;margin-top:4px;">
+          <div style="font-size:11px;color:var(--text-dim,rgba(255,255,255,0.5));line-height:1.5;">
+            Un mot de passe sécurisé sera généré automatiquement et envoyé par email.
+          </div>
+        </div>
+        <button id="createUserSubmit" type="submit"
+          style="padding:12px;background:rgba(170,120,25,0.15);border:1px solid var(--gold,#c8a020);color:var(--gold,#c8a020);font-family:var(--font-display,'Cinzel',serif);font-size:11px;letter-spacing:2px;text-transform:uppercase;cursor:pointer;margin-top:4px;">
+          Créer le compte
+        </button>
+      </form>
+    </div>
+  `;
 
-  const password = prompt(`Créer le mot de passe pour ${normalizedUsername}:\n\nExigences:\n- Min. 8 caractères\n- 1 majuscule\n- 1 minuscule\n- 1 chiffre`);
-  if (!password) return;
+  document.body.appendChild(modalEl);
 
-  const confirmPassword = prompt('Confirmez le mot de passe:');
-  if (password !== confirmPassword) {
-    alert('Les mots de passe ne correspondent pas');
-    return;
-  }
+  const closeModal = () => { if (modalEl.parentNode) modalEl.parentNode.removeChild(modalEl); };
 
-  // Simulate profile creation by logging in with new credentials
-  // This will auto-create the profile on the backend
-  try {
-    const r = await fetch('/api/login', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ identifier: normalizedUsername, password })
-    });
+  modalEl.addEventListener('click', (e) => { if ((e.target as HTMLElement).id === 'createUserModal') closeModal(); });
+  document.getElementById('createUserClose')?.addEventListener('click', closeModal);
 
-    const d = await r.json();
-    if (r.ok) {
-      alert(`✅ Utilisateur ${normalizedUsername} créé avec succès!\n\nLe nouveau compte peut maintenant se connecter.`);
-      await reloadAdminUsers();
-    } else {
-      if (d.error === 'password_policy_failed') {
-        alert('Mot de passe invalide:\n' + (d.details || []).join('\n'));
-      } else {
-        alert(`Erreur: ${d.error || 'Échec de la création'}`);
-      }
+  document.getElementById('createUserForm')?.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const firstName = ((document.getElementById('createUserFirstName') as HTMLInputElement)?.value || '').trim();
+    const email = ((document.getElementById('createUserEmail') as HTMLInputElement)?.value || '').trim();
+    const role = ((document.getElementById('createUserRole') as HTMLSelectElement)?.value || 'user');
+
+    if (!firstName || !email) {
+      showNotification('error', 'Erreur', 'Veuillez remplir tous les champs.');
+      return;
     }
-  } catch (e) {
-    alert('Erreur réseau');
-  }
+
+    const submitBtn = document.getElementById('createUserSubmit') as HTMLButtonElement;
+    if (submitBtn) { submitBtn.disabled = true; submitBtn.textContent = 'Création en cours...'; }
+
+    try {
+      const r = await fetch('/api/admin/create-profile', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${adminToken || token}` },
+        body: JSON.stringify({ firstName, email, role })
+      });
+
+      const d = await r.json();
+
+      if (r.ok) {
+        const emailStatus = d.emailSent
+          ? '<span style="color:var(--success,#4caf50);">Email envoyé avec succès</span>'
+          : '<span style="color:#f39c12;">Email non envoyé — communiquez le mot de passe manuellement</span>';
+
+        const modalContent = modalEl.querySelector('div') as HTMLElement;
+        if (modalContent) {
+          modalContent.innerHTML = `
+            <div style="font-family:var(--font-display,'Cinzel',serif);font-size:14px;color:var(--gold,#c8a020);text-transform:uppercase;letter-spacing:3px;margin-bottom:20px;">
+              Compte Créé
+            </div>
+            <div style="text-align:center;margin-bottom:20px;">
+              <div style="font-size:28px;margin-bottom:8px;color:var(--success,#4caf50);">✓</div>
+              <div style="color:var(--text,rgba(255,255,255,0.95));font-size:14px;">
+                Le compte de <strong style="color:var(--gold,#c8a020);">${firstName}</strong> a été créé.
+              </div>
+            </div>
+            <div style="background:rgba(170,120,25,0.06);border:1px solid rgba(170,120,25,0.15);padding:16px 20px;margin-bottom:16px;">
+              <div style="margin-bottom:12px;">
+                <div style="font-size:10px;color:var(--text-faint,rgba(255,255,255,0.35));text-transform:uppercase;letter-spacing:2px;margin-bottom:4px;">Identifiant</div>
+                <div style="font-family:var(--font-mono,'Courier New',monospace);font-size:13px;color:var(--gold,#c8a020);">${d.profile}</div>
+              </div>
+              <div>
+                <div style="font-size:10px;color:var(--text-faint,rgba(255,255,255,0.35));text-transform:uppercase;letter-spacing:2px;margin-bottom:4px;">Mot de passe</div>
+                <div style="display:flex;align-items:center;gap:8px;">
+                  <div id="generatedPwd" style="font-family:var(--font-mono,'Courier New',monospace);font-size:13px;color:var(--gold,#c8a020);flex:1;">${d.generatedPassword}</div>
+                  <button id="copyPasswordBtn"
+                    style="background:rgba(170,120,25,0.15);border:1px solid var(--border,rgba(170,120,25,0.20));color:var(--gold,#c8a020);padding:4px 10px;font-size:10px;cursor:pointer;">
+                    Copier
+                  </button>
+                </div>
+              </div>
+            </div>
+            <div style="font-size:11px;margin-bottom:16px;">${emailStatus}</div>
+            <button id="createUserSuccessClose"
+              style="width:100%;padding:12px;background:rgba(170,120,25,0.15);border:1px solid var(--gold,#c8a020);color:var(--gold,#c8a020);font-family:var(--font-display,'Cinzel',serif);font-size:11px;letter-spacing:2px;text-transform:uppercase;cursor:pointer;">
+              Fermer
+            </button>
+          `;
+
+          document.getElementById('createUserSuccessClose')?.addEventListener('click', closeModal);
+          document.getElementById('copyPasswordBtn')?.addEventListener('click', () => {
+            navigator.clipboard.writeText(d.generatedPassword).then(() => {
+              showNotification('success', 'Copié', 'Mot de passe copié dans le presse-papiers.');
+            });
+          });
+        }
+
+        await reloadAdminUsers();
+      } else {
+        if (submitBtn) { submitBtn.disabled = false; submitBtn.textContent = 'Créer le compte'; }
+        if (d.error === 'profile_already_exists') {
+          showNotification('error', 'Erreur', 'Un compte avec cet email existe déjà.');
+        } else {
+          showNotification('error', 'Erreur', d.error || 'Échec de la création');
+        }
+      }
+    } catch (err) {
+      if (submitBtn) { submitBtn.disabled = false; submitBtn.textContent = 'Créer le compte'; }
+      showNotification('error', 'Erreur', 'Erreur réseau');
+    }
+  });
 }
 
 async function reloadAdminUsers() {

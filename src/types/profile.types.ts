@@ -31,6 +31,8 @@ export interface Profile {
   disabled: boolean;
   isAdmin?: boolean;
   preferences?: Preferences;
+  email?: string;
+  firstName?: string;
 }
 
 export interface Session {

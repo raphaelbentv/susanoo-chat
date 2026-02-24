@@ -23,6 +23,7 @@ import {
 } from './routes/profile.js';
 import {
   handleAdminLogin,
+  handleCreateProfile,
   handleListProfiles,
   handleChangeRole,
   handleResetPin,
@@ -141,11 +142,15 @@ const requestHandler = async (req: http.IncomingMessage, res: http.ServerRespons
     if (adminRateCheck.blocked) {
       return json(res, 429, { error: 'too_many_requests', retryAfterMs: adminRateCheck.retryAfterMs });
     }
+    if (req.method === 'POST' && pathname === '/api/admin/create-profile') {
+      return handleCreateProfile(req, res);
+    }
+
     if (req.method === 'GET' && pathname === '/api/admin/profiles') {
       return handleListProfiles(req, res);
     }
 
-    if (req.method === 'POST' && pathname === '/api/admin/role') {
+    if (req.method === 'POST' && pathname === '/api/admin/change-role') {
       return handleChangeRole(req, res);
     }
 
@@ -153,7 +158,7 @@ const requestHandler = async (req: http.IncomingMessage, res: http.ServerRespons
       return handleResetPin(req, res);
     }
 
-    if (req.method === 'POST' && pathname === '/api/admin/disable') {
+    if (req.method === 'POST' && pathname === '/api/admin/disable-profile') {
       return handleDisableProfile(req, res);
     }
 

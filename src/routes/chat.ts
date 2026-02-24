@@ -1,7 +1,7 @@
 import type { IncomingMessage, ServerResponse } from 'http';
 import { json, parseBody } from '../utils/http.js';
 import { dbRead, dbWrite } from '../modules/database.js';
-import { getSession } from '../modules/session.js';
+import { getAnySession as getSession } from '../modules/session.js';
 import { hasPermission } from '../modules/rbac.js';
 import { audit } from '../modules/audit.js';
 import { sendToHashirama } from '../modules/bridge.js';
