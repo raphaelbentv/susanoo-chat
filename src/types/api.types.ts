@@ -33,6 +33,7 @@ export interface ChatFile {
 
 export interface ChatRequest {
   message: string;
+  conversationId?: string;
   model?: string;
   temperature?: number;
   maxTokens?: number;

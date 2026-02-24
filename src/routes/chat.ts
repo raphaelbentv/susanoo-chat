@@ -5,6 +5,7 @@ import { getAnySession as getSession } from '../modules/session.js';
 import { hasPermission } from '../modules/rbac.js';
 import { audit } from '../modules/audit.js';
 import { sendToHashirama } from '../modules/bridge.js';
+import { getMessages } from '../modules/conversations.js';
 import { log } from '../utils/logger.js';
 import { validate, sanitize } from '../modules/validate.js';
 import type { ChatRequest } from '../types/index.js';
@@ -102,6 +103,21 @@ export async function handleChat(req: IncomingMessage, res: ServerResponse): Pro
 
     const message = sanitize(data.message, 50000);
 
+    // Load conversation history if conversationId is provided
+    let history: { role: string; content: string }[] = [];
+    if (data.conversationId) {
+      try {
+        const msgs = getMessages(data.conversationId, session.profile);
+        // Take last 30 messages max to stay within context limits
+        history = msgs.slice(-30).map(m => ({
+          role: m.role === 'ai' ? 'assistant' : m.role,
+          content: m.content,
+        }));
+      } catch (e) {
+        log('warn', 'history_load_failed', { conversationId: data.conversationId });
+      }
+    }
+
     // Validate files if present
     const files = Array.isArray(data.files) ? data.files.slice(0, 5).map(f => ({
       name: String(f.name || 'file').slice(0, 200),
@@ -117,6 +133,7 @@ export async function handleChat(req: IncomingMessage, res: ServerResponse): Pro
       contexts: Array.isArray(data.contexts) ? data.contexts.slice(0, 10).map(c => sanitize(c, 100)) : [],
       connectors: Array.isArray(data.connectors) ? data.connectors.slice(0, 10).map(c => sanitize(c, 100)) : [],
       files,
+      history,
     };
 
     const reply = sendToHashirama(message, session.profile, options);

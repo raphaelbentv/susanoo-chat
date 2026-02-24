@@ -1524,6 +1524,7 @@ async function sendMessage() {
   try {
     const payload: any = {
       message: text || '(fichiers joints)',
+      conversationId: activeConversationId,
       model: selectedModel,
       temperature: temperature / 100,
       maxTokens: Math.round(maxTokens * 81.92),

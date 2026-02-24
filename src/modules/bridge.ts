@@ -78,6 +78,7 @@ interface ChatOptions {
   contexts: string[];
   connectors: string[];
   files?: ChatFile[];
+  history?: { role: string; content: string }[];
 }
 
 export function getHashiramaStatus(): any {
@@ -119,25 +120,34 @@ export function sendToHashirama(message: string, _profile: string, options: Chat
   const tempFiles: string[] = [];
 
   try {
-    // Enrichir le message avec les métadonnées de contexte
-    let enrichedMessage = message;
+    // Build the full prompt with conversation history
+    let enrichedMessage = '';
 
-    // Ajouter les contextes actifs
-    if (options.contexts && options.contexts.length > 0) {
-      const contextPrefix = `[Contextes actifs : ${options.contexts.join(', ')}]\n`;
-      enrichedMessage = contextPrefix + message;
-    }
-
-    // Ajouter les connecteurs disponibles
-    if (options.connectors && options.connectors.length > 0) {
-      const connectorPrefix = `[Connecteurs disponibles : ${options.connectors.join(', ')}]\n`;
-      enrichedMessage = connectorPrefix + enrichedMessage;
-    }
-
-    // Ajouter le mode recherche approfondie
+    // Ajouter les métadonnées de contexte en en-tête
     if (options.deepSearch) {
-      enrichedMessage = '[Mode : Recherche approfondie activée]\n' + enrichedMessage;
+      enrichedMessage += '[Mode : Recherche approfondie activée]\n';
     }
+    if (options.connectors && options.connectors.length > 0) {
+      enrichedMessage += `[Connecteurs disponibles : ${options.connectors.join(', ')}]\n`;
+    }
+    if (options.contexts && options.contexts.length > 0) {
+      enrichedMessage += `[Contextes actifs : ${options.contexts.join(', ')}]\n`;
+    }
+
+    // Ajouter l'historique de conversation
+    if (options.history && options.history.length > 0) {
+      enrichedMessage += '\n--- Historique de la conversation ---\n';
+      for (const msg of options.history) {
+        const label = msg.role === 'assistant' ? 'Assistant' : 'Utilisateur';
+        // Tronquer les messages très longs dans l'historique
+        const content = msg.content.length > 2000 ? msg.content.slice(0, 2000) + '...' : msg.content;
+        enrichedMessage += `${label}: ${content}\n\n`;
+      }
+      enrichedMessage += '--- Fin de l\'historique ---\n\n';
+    }
+
+    // Ajouter le message actuel
+    enrichedMessage += message;
 
     // Handle file attachments
     if (options.files && options.files.length > 0) {
