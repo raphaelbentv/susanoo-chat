@@ -756,6 +756,12 @@ function renderRightPanel() {
       `<div class="shortcut-row"><span class="shortcut-action">${a}</span><span class="shortcut-key">${k}</span></div>`
     ).join('');
   }
+
+  // Admin panel — always re-render if admin is logged in
+  if (isAdmin && accAdminSection) {
+    accAdminSection.style.display = 'block';
+    renderAdminPanel();
+  }
 }
 
 // ── MESSAGES ────────────────────────────────────────────────
@@ -784,13 +790,8 @@ async function applyTheme(themeId) {
     }
   }
 
-  // Re-render right panel to update active state
+  // Re-render right panel to update active state (includes admin section)
   renderRightPanel();
-
-  // Re-show admin section if admin (renderRightPanel doesn't manage it)
-  if (isAdmin && accAdminSection) {
-    accAdminSection.style.display = 'block';
-  }
 }
 
 // ── MARKDOWN PARSER ─────────────────────────────────────────
@@ -1310,7 +1311,7 @@ async function loadHashiramaStatus() {
     hashiramaStatus = data.status;
     updateHashiramaConnectionStatus(data.status.connected || false);
     console.log('[DEBUG] Connection status updated');
-    renderRightPanel();
+    renderStatusWidget();
   } catch (e) {
     console.error('Failed to load Hashirama status:', e);
     updateHashiramaConnectionStatus(false);
