@@ -116,6 +116,42 @@ export function getHashiramaStatus(): any {
   }
 }
 
+export function compactHistory(messages: { role: string; content: string }[], existingSummary?: string): string {
+  let historyText = '';
+
+  if (existingSummary) {
+    historyText += `[Résumé précédent]\n${existingSummary}\n\n[Messages récents à intégrer au résumé]\n`;
+  }
+
+  for (const m of messages) {
+    const label = m.role === 'assistant' ? 'Assistant' : 'Utilisateur';
+    const content = m.content.length > 3000 ? m.content.slice(0, 3000) + '...' : m.content;
+    historyText += `${label}: ${content}\n\n`;
+  }
+
+  const prompt = `Tu es un assistant de résumé de conversation. Résume la conversation suivante en conservant TOUS les détails importants :
+- Décisions prises et choix techniques
+- Informations factuelles mentionnées (noms, dates, chiffres)
+- Préférences et demandes de l'utilisateur
+- Contexte du projet et problèmes résolus
+- Instructions spécifiques données
+
+Conversation :
+${historyText}
+
+Produis un résumé structuré et dense (max 2000 caractères). Utilise des puces pour organiser l'information. Ne perds aucun détail technique important.`;
+
+  try {
+    return executeCommand(
+      ['docker', 'exec', 'dev-workspace', 'claude', '-p', prompt],
+      60000
+    );
+  } catch (e) {
+    log('error', 'compaction_failed', { error: (e as Error).message });
+    return '';
+  }
+}
+
 export function sendToHashirama(message: string, _profile: string, options: ChatOptions): string {
   const tempFiles: string[] = [];
 

@@ -9,6 +9,8 @@ export interface Conversation {
   pinned: boolean;
   archived: boolean;
   tags: string[];
+  summary?: string;              // Résumé compacté des anciens messages
+  summaryUpToIndex?: number;     // Index jusqu'où le résumé couvre
 }
 
 export interface Message {

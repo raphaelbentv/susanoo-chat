@@ -2103,6 +2103,9 @@ function renderMobileSessions() {
             <div class="mobile-conv-preview">${escHtml(c.preview || '')}</div>
           </div>
           <div class="mobile-conv-time">${time}</div>
+          <button class="mobile-conv-delete" data-id="${c.id}" title="Supprimer">
+            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M8 6V4a2 2 0 012-2h4a2 2 0 012 2v2"/><path d="M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/></svg>
+          </button>
         </div>`;
     }
   }
@@ -2125,6 +2128,17 @@ function renderMobileSessions() {
     el.addEventListener('click', () => {
       switchConversation(el.dataset.id);
       closeMobileSheet();
+    });
+  });
+
+  mobileSessionsList.querySelectorAll('.mobile-conv-delete').forEach(btn => {
+    btn.addEventListener('click', async (e) => {
+      e.stopPropagation();
+      const id = (btn as HTMLElement).dataset.id;
+      if (id) {
+        const ok = await deleteConversation(id);
+        if (ok) renderMobileSessions();
+      }
     });
   });
 }

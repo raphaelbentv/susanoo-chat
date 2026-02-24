@@ -211,6 +211,19 @@ export function addMessage(
   return message;
 }
 
+// Save compaction summary to conversation
+export function saveCompaction(conversationId: string, profile: string, summary: string, upToIndex: number): void {
+  const db = dbRead();
+  const conv = db.conversationsData[conversationId];
+  if (!conv || conv.profile !== profile) return;
+
+  conv.summary = summary;
+  conv.summaryUpToIndex = upToIndex;
+  conv.updatedAt = Date.now();
+
+  dbWrite(db);
+}
+
 // Get messages from conversation
 export function getMessages(conversationId: string, profile: string): Message[] {
   const conv = getConversation(conversationId, profile);

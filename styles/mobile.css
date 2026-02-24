@@ -600,6 +600,27 @@
   font-weight: 300;
 }
 
+.mobile-conv-delete {
+  width: 36px; height: 36px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: none;
+  border: 1px solid rgba(255,80,80,0.15);
+  border-radius: 10px;
+  color: rgba(255,100,100,0.5);
+  cursor: pointer;
+  flex-shrink: 0;
+  -webkit-tap-highlight-color: transparent;
+  transition: all 0.15s;
+}
+.mobile-conv-delete:active {
+  transform: scale(0.88);
+  background: rgba(255,60,60,0.12);
+  color: #ff6666;
+  border-color: rgba(255,80,80,0.35);
+}
+
 .mobile-empty {
   text-align: center;
   padding: 36px 24px;

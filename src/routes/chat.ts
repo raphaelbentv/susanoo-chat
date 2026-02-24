@@ -4,8 +4,8 @@ import { dbRead, dbWrite } from '../modules/database.js';
 import { getAnySession as getSession } from '../modules/session.js';
 import { hasPermission } from '../modules/rbac.js';
 import { audit } from '../modules/audit.js';
-import { sendToHashirama } from '../modules/bridge.js';
-import { getMessages } from '../modules/conversations.js';
+import { sendToHashirama, compactHistory } from '../modules/bridge.js';
+import { getConversation, saveCompaction } from '../modules/conversations.js';
 import { log } from '../utils/logger.js';
 import { validate, sanitize } from '../modules/validate.js';
 import type { ChatRequest } from '../types/index.js';
@@ -103,18 +103,96 @@ export async function handleChat(req: IncomingMessage, res: ServerResponse): Pro
 
     const message = sanitize(data.message, 50000);
 
-    // Load conversation history if conversationId is provided
+    // Load conversation history with compaction for long conversations
     let history: { role: string; content: string }[] = [];
     if (data.conversationId) {
       try {
-        const msgs = getMessages(data.conversationId, session.profile);
-        // Take last 30 messages max to stay within context limits
-        history = msgs.slice(-30).map(m => ({
-          role: m.role === 'ai' ? 'assistant' : m.role,
-          content: m.content,
-        }));
+        const conv = getConversation(data.conversationId, session.profile);
+        if (conv) {
+          const msgs = conv.messages;
+          const COMPACT_THRESHOLD = 20;
+          const RECENT_KEEP = 8;
+
+          if (msgs.length > COMPACT_THRESHOLD) {
+            // Long conversation — use compaction
+            const summaryIndex = conv.summaryUpToIndex || 0;
+            const existingSummary = conv.summary || '';
+            const messagesSinceSummary = msgs.slice(summaryIndex);
+
+            if (messagesSinceSummary.length > COMPACT_THRESHOLD) {
+              // Need to (re-)compact
+              const toCompact = messagesSinceSummary.slice(0, -RECENT_KEEP).map(m => ({
+                role: m.role === 'ai' ? 'assistant' : m.role,
+                content: m.content,
+              }));
+
+              const newSummary = compactHistory(toCompact, existingSummary);
+              if (newSummary) {
+                const newIndex = msgs.length - RECENT_KEEP;
+                saveCompaction(data.conversationId, session.profile, newSummary, newIndex);
+                log('info', 'conversation_compacted', {
+                  conversationId: data.conversationId,
+                  totalMessages: msgs.length,
+                  compactedUpTo: newIndex,
+                });
+
+                history = [
+                  { role: 'system', content: `[Contexte de la conversation]\n${newSummary}` },
+                  ...msgs.slice(-RECENT_KEEP).map(m => ({
+                    role: m.role === 'ai' ? 'assistant' : m.role,
+                    content: m.content,
+                  })),
+                ];
+              } else {
+                // Compaction failed, fallback to last 30
+                history = msgs.slice(-30).map(m => ({
+                  role: m.role === 'ai' ? 'assistant' : m.role,
+                  content: m.content,
+                }));
+              }
+            } else if (existingSummary) {
+              // Summary is still fresh enough
+              history = [
+                { role: 'system', content: `[Contexte de la conversation]\n${existingSummary}` },
+                ...messagesSinceSummary.map(m => ({
+                  role: m.role === 'ai' ? 'assistant' : m.role,
+                  content: m.content,
+                })),
+              ];
+            } else {
+              // Just over threshold but no summary yet — compact now
+              const toCompact = msgs.slice(0, -RECENT_KEEP).map(m => ({
+                role: m.role === 'ai' ? 'assistant' : m.role,
+                content: m.content,
+              }));
+              const newSummary = compactHistory(toCompact);
+              if (newSummary) {
+                const newIndex = msgs.length - RECENT_KEEP;
+                saveCompaction(data.conversationId, session.profile, newSummary, newIndex);
+                history = [
+                  { role: 'system', content: `[Contexte de la conversation]\n${newSummary}` },
+                  ...msgs.slice(-RECENT_KEEP).map(m => ({
+                    role: m.role === 'ai' ? 'assistant' : m.role,
+                    content: m.content,
+                  })),
+                ];
+              } else {
+                history = msgs.slice(-30).map(m => ({
+                  role: m.role === 'ai' ? 'assistant' : m.role,
+                  content: m.content,
+                }));
+              }
+            }
+          } else {
+            // Short conversation — send all messages
+            history = msgs.map(m => ({
+              role: m.role === 'ai' ? 'assistant' : m.role,
+              content: m.content,
+            }));
+          }
+        }
       } catch (e) {
-        log('warn', 'history_load_failed', { conversationId: data.conversationId });
+        log('warn', 'history_load_failed', { conversationId: data.conversationId, error: (e as Error).message });
       }
     }
 
