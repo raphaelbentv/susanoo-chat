@@ -300,6 +300,18 @@ input[type=range]::-webkit-slider-thumb {
 }
 .search-input:focus { border-color: rgba(170,120,25,0.25); }
 
+.sidebar-new-conv-btn {
+  display: block; width: calc(100% - 28px); margin: 8px 14px;
+  padding: 7px 12px;
+  background: rgba(170,120,25,0.08); border: 1px solid var(--border);
+  color: var(--gold); font-family: var(--font-mono); font-size: 10px;
+  letter-spacing: 1px; cursor: pointer; text-align: left;
+  transition: background 0.2s, border-color 0.2s;
+}
+.sidebar-new-conv-btn:hover {
+  background: rgba(170,120,25,0.18); border-color: var(--gold);
+}
+
 .sidebar-convs { flex: 1; overflow-y: auto; min-height: 0; scrollbar-width: thin; scrollbar-color: rgba(170,120,25,0.2) transparent; }
 
 .conv-group-label {

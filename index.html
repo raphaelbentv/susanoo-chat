@@ -7,6 +7,11 @@
   <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;700;900&family=Cormorant+Garamond:ital,wght@0,300;0,600;1,300;1,600&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="styles/base.css">
   <link rel="stylesheet" href="styles/themes/emperor.css">
+  <link rel="stylesheet" href="styles/themes/obsidian.css">
+  <link rel="stylesheet" href="styles/themes/cyber.css">
+  <link rel="stylesheet" href="styles/themes/ghost.css">
+  <link rel="stylesheet" href="styles/themes/storm.css">
+  <link rel="stylesheet" href="styles/themes/brutal.css">
 </head>
 <body>
 
@@ -78,6 +83,8 @@
           <input type="text" id="convSearch" placeholder="Rechercher…" class="search-input" autocomplete="off">
         </div>
 
+        <button class="sidebar-new-conv-btn" id="newConvBtnFull" type="button">+ Nouvelle conversation</button>
+
         <div class="sidebar-convs scroll" id="convList">
           <!-- Rendered by JS -->
         </div>
@@ -124,7 +131,7 @@
               <span>Contexte <em id="ctxTokens">0 tk</em></span>
               <span>Session <em id="sessionTime">--:--</em></span>
             </div>
-            <div class="input-meta-right">⏎ Envoyer · ⇧⏎ Newline · ⌘K</div>
+            <div class="input-meta-right">⏎ Envoyer · ⇧⏎ Newline · ⌘K Recherche</div>
           </div>
         </div>
 
@@ -186,15 +193,6 @@
               <span class="acc-arrow open">▼</span>
             </div>
             <div class="acc-body" id="accAdminBody"></div>
-          </div>
-
-          <!-- Context tags -->
-          <div class="acc-section">
-            <div class="acc-header">
-              <span>Contextes Actifs</span>
-              <span class="acc-arrow open">▼</span>
-            </div>
-            <div class="acc-body" id="accTagsBody"></div>
           </div>
 
           <!-- Options -->

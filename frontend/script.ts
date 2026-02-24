@@ -14,6 +14,7 @@ const sidebarToggle  = $('#sidebarToggle');
 const convSearch     = $('#convSearch');
 const convList       = $('#convList');
 const newConvBtn     = $('#newConvBtn');
+const newConvBtnFull = $('#newConvBtnFull');
 const statusToggle   = $('#statusToggle');
 const statusBody     = $('#statusBody');
 const chatMessages   = $('#chatMessages');
@@ -59,7 +60,7 @@ let profile          = sessionStorage.getItem('hashi_profile') || '';
 let role             = sessionStorage.getItem('hashi_role') || 'user';
 let isAdmin          = sessionStorage.getItem('hashi_is_admin') === 'true';
 let adminToken       = sessionStorage.getItem('hashi_admin_token') || '';
-let activeTags       = ['Venio'];
+let activeTags       = [];
 let temperature      = 80;
 let maxTokens        = 60;
 let statusWidgetOpen = true;
@@ -69,7 +70,6 @@ let sessionExpiresAt = Number(sessionStorage.getItem('hashi_expires') || 0);
 let passwordPolicy   = null;
 let sessionCheckTimer = null;
 let currentTheme     = localStorage.getItem('hashirama_theme') || 'emperor';
-let loadedThemes     = new Set();
 let selectedModel    = localStorage.getItem('hashirama_model') || 'claude-sonnet-4';
 let deepSearchEnabled = localStorage.getItem('hashirama_deep_search') === 'true';
 let activeConnectors = JSON.parse(localStorage.getItem('hashirama_connectors') || '[]');
@@ -86,7 +86,6 @@ let currentArtifact = null; // { type: 'html'|'svg'|'react', code: string, title
 let adminUsers = []; // Liste des utilisateurs pour l'admin
 let adminAuditLog = []; // Logs d'audit pour l'admin
 
-const ALL_TAGS = ["Venio","Creatio","Arrow","Kuro","MBWAY","EMA","Absys","Bangkok","Instagram","VPS"];
 
 const THEMES = [
   { id: 'obsidian', name: 'Obsidian Sentinel', primary: '#bb1e00', bg: '#030303', accent: '#ff0000', icon: '🗡️' },
@@ -174,10 +173,14 @@ function saveSession(t, p, r, expires) {
 
 function clearSession() {
   token = ''; profile = ''; role = 'user'; sessionExpiresAt = 0;
+  isAdmin = false; adminToken = '';
   sessionStorage.removeItem('hashi_token');
   sessionStorage.removeItem('hashi_profile');
   sessionStorage.removeItem('hashi_role');
   sessionStorage.removeItem('hashi_expires');
+  sessionStorage.removeItem('hashi_is_admin');
+  sessionStorage.removeItem('hashi_admin_token');
+  if (accAdminSection) accAdminSection.style.display = 'none';
 }
 
 function showLogin() {
@@ -602,22 +605,6 @@ function renderRightPanel() {
       <button class="modify-btn">Modifier</button>`;
   }
 
-  // Context tags
-  const accTags = $('#accTagsBody');
-  if (accTags) {
-    accTags.innerHTML = `<div class="tags-wrap">
-      ${ALL_TAGS.map(t => `<span class="context-tag${activeTags.includes(t) ? ' active' : ''}" data-tag="${t}">${t}</span>`).join('')}
-    </div>`;
-    accTags.querySelectorAll('.context-tag').forEach(el => {
-      el.addEventListener('click', () => {
-        const tag = el.dataset.tag;
-        if (activeTags.includes(tag)) activeTags = activeTags.filter(x => x !== tag);
-        else activeTags.push(tag);
-        renderRightPanel();
-      });
-    });
-  }
-
   // Theme selector
   const accTheme = $('#accThemeBody');
   if (accTheme) {
@@ -729,25 +716,12 @@ function renderRightPanel() {
 
 // ── MESSAGES ────────────────────────────────────────────────
 // ── THEME SYSTEM ────────────────────────────────────────────
-function loadThemeCSS(themeId) {
-  if (loadedThemes.has(themeId)) return;
-  const link = document.createElement('link');
-  link.rel = 'stylesheet';
-  link.href = `/styles/themes/${themeId}.css`;
-  link.id = `theme-${themeId}`;
-  document.head.appendChild(link);
-  loadedThemes.add(themeId);
-}
-
 async function applyTheme(themeId) {
   // Validate theme
   if (!THEMES.find(t => t.id === themeId)) themeId = 'emperor';
 
-  // Update DOM attribute
+  // Update DOM attribute (all theme CSS are preloaded in index.html)
   document.documentElement.setAttribute('data-theme', themeId);
-
-  // Load theme CSS if needed
-  loadThemeCSS(themeId);
 
   // Save to localStorage
   localStorage.setItem('hashirama_theme', themeId);
@@ -768,6 +742,11 @@ async function applyTheme(themeId) {
 
   // Re-render right panel to update active state
   renderRightPanel();
+
+  // Re-show admin section if admin (renderRightPanel doesn't manage it)
+  if (isAdmin && accAdminSection) {
+    accAdminSection.style.display = 'block';
+  }
 }
 
 // ── MARKDOWN PARSER ─────────────────────────────────────────
@@ -1912,15 +1891,15 @@ function handleGlobalShortcuts(e) {
   // Don't interfere with typing (except global shortcuts)
   if (isInput && !cmdKey) return;
 
-  // Ctrl/Cmd + K: Focus search
+  // Cmd/Ctrl + K: Focus search
   if (cmdKey && e.key === 'k') {
     e.preventDefault();
     convSearch.focus();
     return;
   }
 
-  // Ctrl/Cmd + N: New conversation
-  if (cmdKey && e.key === 'n') {
+  // Cmd/Ctrl + Shift + N: New conversation
+  if (cmdKey && e.shiftKey && e.key === 'N') {
     e.preventDefault();
     createNewConversation().then(conv => {
       if (conv) {
@@ -1933,8 +1912,8 @@ function handleGlobalShortcuts(e) {
     return;
   }
 
-  // Ctrl/Cmd + E: Export active conversation
-  if (cmdKey && e.key === 'e') {
+  // Cmd/Ctrl + Shift + E: Export active conversation
+  if (cmdKey && e.shiftKey && e.key === 'E') {
     e.preventDefault();
     if (activeConversationId) {
       exportConversation(activeConversationId, 'md');
@@ -1942,15 +1921,15 @@ function handleGlobalShortcuts(e) {
     return;
   }
 
-  // Ctrl/Cmd + B: Toggle sidebar
-  if (cmdKey && e.key === 'b') {
+  // Cmd/Ctrl + Shift + B: Toggle sidebar
+  if (cmdKey && e.shiftKey && e.key === 'B') {
     e.preventDefault();
     toggleSidebar();
     return;
   }
 
-  // Ctrl/Cmd + /: Show shortcuts
-  if (cmdKey && e.key === '/') {
+  // Cmd/Ctrl + Shift + /: Show shortcuts
+  if (cmdKey && e.shiftKey && e.key === '?') {
     e.preventDefault();
     showShortcutsHelp();
     return;
@@ -1963,10 +1942,10 @@ function showShortcutsHelp() {
 
   const shortcuts = [
     { keys: `${cmd} + K`, action: 'Focus recherche' },
-    { keys: `${cmd} + N`, action: 'Nouvelle conversation' },
-    { keys: `${cmd} + E`, action: 'Exporter la conversation' },
-    { keys: `${cmd} + B`, action: 'Afficher/masquer sidebar' },
-    { keys: `${cmd} + /`, action: 'Afficher les raccourcis' },
+    { keys: `${cmd} + ⇧ + N`, action: 'Nouvelle conversation' },
+    { keys: `${cmd} + ⇧ + E`, action: 'Exporter la conversation' },
+    { keys: `${cmd} + ⇧ + B`, action: 'Afficher/masquer sidebar' },
+    { keys: `${cmd} + ⇧ + /`, action: 'Afficher les raccourcis' },
     { keys: 'Esc', action: 'Fermer les modaux' },
     { keys: 'Enter', action: 'Envoyer le message' },
     { keys: 'Shift + Enter', action: 'Nouvelle ligne' },
@@ -2023,7 +2002,7 @@ convSearch.addEventListener('input', (e) => {
     performSearch(query);
   }, 500);
 });
-newConvBtn.addEventListener('click', async () => {
+async function handleNewConversation() {
   const newConv = await createNewConversation();
   if (newConv) {
     activeConversationId = newConv.id;
@@ -2031,7 +2010,9 @@ newConvBtn.addEventListener('click', async () => {
     renderConversations();
     renderMessages();
   }
-});
+}
+newConvBtn.addEventListener('click', handleNewConversation);
+newConvBtnFull?.addEventListener('click', handleNewConversation);
 
 chatInput.addEventListener('input', () => {
   chatInput.style.height = 'auto';
