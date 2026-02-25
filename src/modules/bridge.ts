@@ -117,19 +117,46 @@ export function getHashiramaStatus(): any {
 }
 
 export function compactHistory(messages: { role: string; content: string }[], existingSummary?: string): string {
+  // Limit input size to avoid timeouts — truncate individual messages more aggressively
+  const MAX_INPUT_CHARS = 15000;
   let historyText = '';
+  let charBudget = MAX_INPUT_CHARS;
 
   if (existingSummary) {
-    historyText += `[Résumé précédent]\n${existingSummary}\n\n[Messages récents à intégrer au résumé]\n`;
+    // Existing summary gets priority — truncate if extremely long
+    const summaryTruncated = existingSummary.length > 4000
+      ? existingSummary.slice(0, 4000) + '...'
+      : existingSummary;
+    historyText += `[Résumé précédent de la conversation]\n${summaryTruncated}\n\n[Nouveaux messages à intégrer]\n`;
+    charBudget -= historyText.length;
   }
+
+  // Allocate remaining budget across messages, favoring recent ones
+  const perMessageBudget = Math.max(500, Math.floor(charBudget / Math.max(messages.length, 1)));
 
   for (const m of messages) {
     const label = m.role === 'assistant' ? 'Assistant' : 'Utilisateur';
-    const content = m.content.length > 3000 ? m.content.slice(0, 3000) + '...' : m.content;
+    const content = m.content.length > perMessageBudget
+      ? m.content.slice(0, perMessageBudget) + '...'
+      : m.content;
     historyText += `${label}: ${content}\n\n`;
   }
 
-  const prompt = `Tu es un assistant de résumé de conversation. Résume la conversation suivante en conservant TOUS les détails importants :
+  const isIncremental = !!existingSummary;
+  const prompt = isIncremental
+    ? `Tu es un assistant de résumé de conversation. Tu reçois un RÉSUMÉ EXISTANT et de NOUVEAUX MESSAGES.
+Fusionne-les en un seul résumé cohérent et à jour. Conserve TOUS les détails importants :
+- Décisions prises et choix techniques
+- Informations factuelles (noms, dates, chiffres, URLs)
+- Préférences et demandes de l'utilisateur
+- Contexte du projet et problèmes résolus/en cours
+- Instructions spécifiques données
+- Évolution des sujets de conversation
+
+${historyText}
+
+Produis un résumé structuré et dense (max 3000 caractères). Utilise des puces. Mets à jour les informations obsolètes plutôt que de les dupliquer. Ne perds aucun détail technique important.`
+    : `Tu es un assistant de résumé de conversation. Résume la conversation suivante en conservant TOUS les détails importants :
 - Décisions prises et choix techniques
 - Informations factuelles mentionnées (noms, dates, chiffres)
 - Préférences et demandes de l'utilisateur
@@ -139,15 +166,19 @@ export function compactHistory(messages: { role: string; content: string }[], ex
 Conversation :
 ${historyText}
 
-Produis un résumé structuré et dense (max 2000 caractères). Utilise des puces pour organiser l'information. Ne perds aucun détail technique important.`;
+Produis un résumé structuré et dense (max 3000 caractères). Utilise des puces pour organiser l'information. Ne perds aucun détail technique important.`;
 
   try {
     return executeCommand(
       ['docker', 'exec', 'dev-workspace', 'claude', '-p', prompt],
-      60000
+      90000 // 90s — more time for incremental merges
     );
   } catch (e) {
-    log('error', 'compaction_failed', { error: (e as Error).message });
+    log('error', 'compaction_failed', {
+      error: (e as Error).message,
+      messageCount: messages.length,
+      hadExistingSummary: !!existingSummary,
+    });
     return '';
   }
 }
@@ -170,13 +201,39 @@ export function sendToHashirama(message: string, _profile: string, options: Chat
       enrichedMessage += `[Contextes actifs : ${options.contexts.join(', ')}]\n`;
     }
 
-    // Ajouter l'historique de conversation
+    // Ajouter l'historique de conversation avec troncature adaptative
     if (options.history && options.history.length > 0) {
       enrichedMessage += '\n--- Historique de la conversation ---\n';
-      for (const msg of options.history) {
-        const label = msg.role === 'assistant' ? 'Assistant' : 'Utilisateur';
-        // Tronquer les messages très longs dans l'historique
-        const content = msg.content.length > 2000 ? msg.content.slice(0, 2000) + '...' : msg.content;
+
+      // Budget total pour l'historique : ~40k caractères
+      const HISTORY_BUDGET = 40000;
+      const historyCount = options.history.length;
+
+      // Les messages système (résumés) ont un budget généreux
+      // Les messages récents ont plus de budget que les anciens
+      for (let i = 0; i < historyCount; i++) {
+        const msg = options.history[i];
+        const label = msg.role === 'system' ? 'Contexte' : msg.role === 'assistant' ? 'Assistant' : 'Utilisateur';
+
+        let maxLen: number;
+        if (msg.role === 'system') {
+          // System messages (summaries) get generous budget
+          maxLen = 6000;
+        } else {
+          // Recent messages get more space, older ones less
+          const recency = i / historyCount; // 0 = oldest, ~1 = newest
+          maxLen = Math.round(1500 + recency * 4500); // 1500 → 6000 chars
+        }
+
+        // Ensure we don't exceed total budget
+        const remainingBudget = HISTORY_BUDGET - enrichedMessage.length;
+        if (remainingBudget < 200) {
+          enrichedMessage += `[... ${historyCount - i} messages antérieurs omis]\n`;
+          break;
+        }
+        maxLen = Math.min(maxLen, remainingBudget - 100);
+
+        const content = msg.content.length > maxLen ? msg.content.slice(0, maxLen) + '...' : msg.content;
         enrichedMessage += `${label}: ${content}\n\n`;
       }
       enrichedMessage += '--- Fin de l\'historique ---\n\n';

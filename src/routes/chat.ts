@@ -103,7 +103,7 @@ export async function handleChat(req: IncomingMessage, res: ServerResponse): Pro
 
     const message = sanitize(data.message, 50000);
 
-    // Load conversation history with compaction for long conversations
+    // Load conversation history with incremental compaction for long conversations
     let history: { role: string; content: string }[] = [];
     if (data.conversationId) {
       try {
@@ -111,17 +111,18 @@ export async function handleChat(req: IncomingMessage, res: ServerResponse): Pro
         if (conv) {
           const msgs = conv.messages;
           const COMPACT_THRESHOLD = 20;
-          const RECENT_KEEP = 8;
+          const RECENT_KEEP = 12;
+          const INCREMENTAL_BATCH = 10; // Compact in batches of ~10 new messages
 
           if (msgs.length > COMPACT_THRESHOLD) {
-            // Long conversation — use compaction
             const summaryIndex = conv.summaryUpToIndex || 0;
             const existingSummary = conv.summary || '';
-            const messagesSinceSummary = msgs.slice(summaryIndex);
+            const newMessagesSinceSummary = msgs.slice(summaryIndex);
+            const newMessagesExcludingRecent = newMessagesSinceSummary.length - RECENT_KEEP;
 
-            if (messagesSinceSummary.length > COMPACT_THRESHOLD) {
-              // Need to (re-)compact
-              const toCompact = messagesSinceSummary.slice(0, -RECENT_KEEP).map(m => ({
+            if (newMessagesExcludingRecent >= INCREMENTAL_BATCH) {
+              // Incremental compaction: only summarize NEW messages since last summary
+              const toCompact = newMessagesSinceSummary.slice(0, -RECENT_KEEP).map(m => ({
                 role: m.role === 'ai' ? 'assistant' : m.role,
                 content: m.content,
               }));
@@ -134,6 +135,7 @@ export async function handleChat(req: IncomingMessage, res: ServerResponse): Pro
                   conversationId: data.conversationId,
                   totalMessages: msgs.length,
                   compactedUpTo: newIndex,
+                  summaryLength: newSummary.length,
                 });
 
                 history = [
@@ -144,23 +146,38 @@ export async function handleChat(req: IncomingMessage, res: ServerResponse): Pro
                   })),
                 ];
               } else {
-                // Compaction failed, fallback to last 30
-                history = msgs.slice(-30).map(m => ({
-                  role: m.role === 'ai' ? 'assistant' : m.role,
-                  content: m.content,
-                }));
+                // Compaction failed — use last valid summary if available
+                if (existingSummary) {
+                  log('warn', 'compaction_failed_using_existing', {
+                    conversationId: data.conversationId,
+                    fallbackSummaryLength: existingSummary.length,
+                  });
+                  history = [
+                    { role: 'system', content: `[Contexte de la conversation]\n${existingSummary}` },
+                    ...msgs.slice(-RECENT_KEEP).map(m => ({
+                      role: m.role === 'ai' ? 'assistant' : m.role,
+                      content: m.content,
+                    })),
+                  ];
+                } else {
+                  // No summary at all — send recent messages only
+                  history = msgs.slice(-RECENT_KEEP).map(m => ({
+                    role: m.role === 'ai' ? 'assistant' : m.role,
+                    content: m.content,
+                  }));
+                }
               }
             } else if (existingSummary) {
-              // Summary is still fresh enough
+              // Summary is still fresh — reuse it with all messages since
               history = [
                 { role: 'system', content: `[Contexte de la conversation]\n${existingSummary}` },
-                ...messagesSinceSummary.map(m => ({
+                ...newMessagesSinceSummary.map(m => ({
                   role: m.role === 'ai' ? 'assistant' : m.role,
                   content: m.content,
                 })),
               ];
             } else {
-              // Just over threshold but no summary yet — compact now
+              // Over threshold but no summary yet — first compaction
               const toCompact = msgs.slice(0, -RECENT_KEEP).map(m => ({
                 role: m.role === 'ai' ? 'assistant' : m.role,
                 content: m.content,
@@ -177,7 +194,8 @@ export async function handleChat(req: IncomingMessage, res: ServerResponse): Pro
                   })),
                 ];
               } else {
-                history = msgs.slice(-30).map(m => ({
+                // First compaction failed — send recent messages
+                history = msgs.slice(-RECENT_KEEP).map(m => ({
                   role: m.role === 'ai' ? 'assistant' : m.role,
                   content: m.content,
                 }));
