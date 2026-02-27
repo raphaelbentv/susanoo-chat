@@ -1,4 +1,4 @@
-import { execFileSync, spawnSync } from 'child_process';
+import { execFileSync, spawnSync, spawn } from 'child_process';
 import { log } from '../utils/logger.js';
 import { readFileSync, writeFileSync, mkdirSync, unlinkSync } from 'fs';
 import { join } from 'path';
@@ -183,88 +183,99 @@ Produis un résumé structuré et dense (max 3000 caractères). Utilise des puce
   }
 }
 
-export function sendToHashirama(message: string, _profile: string, options: ChatOptions): string {
+// ── Shared prompt builder ───────────────────────────────────
+
+function buildEnrichedMessage(
+  message: string,
+  options: ChatOptions,
+): { enrichedMessage: string; tempFiles: string[] } {
   const tempFiles: string[] = [];
+  let enrichedMessage = '';
+
+  // Ajouter les métadonnées de contexte en en-tête
+  if (options.deepSearch) {
+    enrichedMessage += '[Mode : Recherche approfondie activée]\n';
+  }
+  if (options.connectors && options.connectors.length > 0) {
+    enrichedMessage += `[Connecteurs disponibles : ${options.connectors.join(', ')}]\n`;
+  }
+  if (options.contexts && options.contexts.length > 0) {
+    enrichedMessage += `[Contextes actifs : ${options.contexts.join(', ')}]\n`;
+  }
+
+  // Ajouter l'historique de conversation avec troncature adaptative
+  if (options.history && options.history.length > 0) {
+    enrichedMessage += '\n--- Historique de la conversation ---\n';
+
+    // Budget total pour l'historique : ~40k caractères
+    const HISTORY_BUDGET = 40000;
+    const historyCount = options.history.length;
+
+    // Les messages système (résumés) ont un budget généreux
+    // Les messages récents ont plus de budget que les anciens
+    for (let i = 0; i < historyCount; i++) {
+      const msg = options.history[i];
+      const label = msg.role === 'system' ? 'Contexte' : msg.role === 'assistant' ? 'Assistant' : 'Utilisateur';
+
+      let maxLen: number;
+      if (msg.role === 'system') {
+        // System messages (summaries) get generous budget
+        maxLen = 6000;
+      } else {
+        // Recent messages get more space, older ones less
+        const recency = i / historyCount; // 0 = oldest, ~1 = newest
+        maxLen = Math.round(1500 + recency * 4500); // 1500 → 6000 chars
+      }
+
+      // Ensure we don't exceed total budget
+      const remainingBudget = HISTORY_BUDGET - enrichedMessage.length;
+      if (remainingBudget < 200) {
+        enrichedMessage += `[... ${historyCount - i} messages antérieurs omis]\n`;
+        break;
+      }
+      maxLen = Math.min(maxLen, remainingBudget - 100);
+
+      const content = msg.content.length > maxLen ? msg.content.slice(0, maxLen) + '...' : msg.content;
+      enrichedMessage += `${label}: ${content}\n\n`;
+    }
+    enrichedMessage += '--- Fin de l\'historique ---\n\n';
+  }
+
+  // Ajouter le message actuel
+  enrichedMessage += message;
+
+  // Handle file attachments
+  if (options.files && options.files.length > 0) {
+    const tmpDir = join(process.cwd(), '.tmp', 'uploads');
+    mkdirSync(tmpDir, { recursive: true });
+
+    for (const file of options.files) {
+      const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, '_').slice(0, 100);
+      const tmpPath = join(tmpDir, `${Date.now()}_${safeName}`);
+      const buffer = Buffer.from(file.data, 'base64');
+      writeFileSync(tmpPath, buffer);
+      tempFiles.push(tmpPath);
+
+      // For text-based files, inline content in the message
+      if (file.type.startsWith('text/') || safeName.match(/\.(txt|csv|md|json|xml|html|css|js|ts)$/i)) {
+        const textContent = buffer.toString('utf8').slice(0, 30000);
+        enrichedMessage += `\n\n--- Fichier joint : ${file.name} ---\n${textContent}\n--- Fin du fichier ---`;
+      } else {
+        // For binary files (images, PDFs), note them in the message
+        enrichedMessage += `\n\n[Fichier joint : ${file.name} (${file.type}, ${Math.round(buffer.length / 1024)} Ko)]`;
+      }
+    }
+  }
+
+  return { enrichedMessage, tempFiles };
+}
+
+// ── Synchronous bridge (kept for backward compat) ───────────
+
+export function sendToHashirama(message: string, _profile: string, options: ChatOptions): string {
+  const { enrichedMessage, tempFiles } = buildEnrichedMessage(message, options);
 
   try {
-    // Build the full prompt with conversation history
-    let enrichedMessage = '';
-
-    // Ajouter les métadonnées de contexte en en-tête
-    if (options.deepSearch) {
-      enrichedMessage += '[Mode : Recherche approfondie activée]\n';
-    }
-    if (options.connectors && options.connectors.length > 0) {
-      enrichedMessage += `[Connecteurs disponibles : ${options.connectors.join(', ')}]\n`;
-    }
-    if (options.contexts && options.contexts.length > 0) {
-      enrichedMessage += `[Contextes actifs : ${options.contexts.join(', ')}]\n`;
-    }
-
-    // Ajouter l'historique de conversation avec troncature adaptative
-    if (options.history && options.history.length > 0) {
-      enrichedMessage += '\n--- Historique de la conversation ---\n';
-
-      // Budget total pour l'historique : ~40k caractères
-      const HISTORY_BUDGET = 40000;
-      const historyCount = options.history.length;
-
-      // Les messages système (résumés) ont un budget généreux
-      // Les messages récents ont plus de budget que les anciens
-      for (let i = 0; i < historyCount; i++) {
-        const msg = options.history[i];
-        const label = msg.role === 'system' ? 'Contexte' : msg.role === 'assistant' ? 'Assistant' : 'Utilisateur';
-
-        let maxLen: number;
-        if (msg.role === 'system') {
-          // System messages (summaries) get generous budget
-          maxLen = 6000;
-        } else {
-          // Recent messages get more space, older ones less
-          const recency = i / historyCount; // 0 = oldest, ~1 = newest
-          maxLen = Math.round(1500 + recency * 4500); // 1500 → 6000 chars
-        }
-
-        // Ensure we don't exceed total budget
-        const remainingBudget = HISTORY_BUDGET - enrichedMessage.length;
-        if (remainingBudget < 200) {
-          enrichedMessage += `[... ${historyCount - i} messages antérieurs omis]\n`;
-          break;
-        }
-        maxLen = Math.min(maxLen, remainingBudget - 100);
-
-        const content = msg.content.length > maxLen ? msg.content.slice(0, maxLen) + '...' : msg.content;
-        enrichedMessage += `${label}: ${content}\n\n`;
-      }
-      enrichedMessage += '--- Fin de l\'historique ---\n\n';
-    }
-
-    // Ajouter le message actuel
-    enrichedMessage += message;
-
-    // Handle file attachments
-    if (options.files && options.files.length > 0) {
-      const tmpDir = join(process.cwd(), '.tmp', 'uploads');
-      mkdirSync(tmpDir, { recursive: true });
-
-      for (const file of options.files) {
-        const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, '_').slice(0, 100);
-        const tmpPath = join(tmpDir, `${Date.now()}_${safeName}`);
-        const buffer = Buffer.from(file.data, 'base64');
-        writeFileSync(tmpPath, buffer);
-        tempFiles.push(tmpPath);
-
-        // For text-based files, inline content in the message
-        if (file.type.startsWith('text/') || safeName.match(/\.(txt|csv|md|json|xml|html|css|js|ts)$/i)) {
-          const textContent = buffer.toString('utf8').slice(0, 30000);
-          enrichedMessage += `\n\n--- Fichier joint : ${file.name} ---\n${textContent}\n--- Fin du fichier ---`;
-        } else {
-          // For binary files (images, PDFs), note them in the message
-          enrichedMessage += `\n\n[Fichier joint : ${file.name} (${file.type}, ${Math.round(buffer.length / 1024)} Ko)]`;
-        }
-      }
-    }
-
     // Pass message as argument directly — no shell interpolation
     const output = executeCommand(
       ['docker', 'exec', 'dev-workspace', 'claude', '-p', enrichedMessage],
@@ -286,4 +297,98 @@ export function sendToHashirama(message: string, _profile: string, options: Chat
       try { unlinkSync(f); } catch { /* ignore */ }
     }
   }
+}
+
+// ── Async streaming bridge ──────────────────────────────────
+
+export interface StreamCallbacks {
+  onChunk: (text: string) => void;
+  onDone: (fullText: string) => void;
+  onError: (error: string) => void;
+}
+
+export function streamFromHashirama(
+  message: string,
+  _profile: string,
+  options: ChatOptions,
+  callbacks: StreamCallbacks,
+): { abort: () => void } {
+  const { enrichedMessage, tempFiles } = buildEnrichedMessage(message, options);
+
+  const cleanup = () => {
+    for (const f of tempFiles) {
+      try { unlinkSync(f); } catch { /* ignore */ }
+    }
+  };
+
+  let finished = false;
+  const finish = (fn: () => void) => {
+    if (finished) return;
+    finished = true;
+    clearTimeout(timer);
+    cleanup();
+    fn();
+  };
+
+  // Spawn child process
+  const args = ['docker', 'exec', 'dev-workspace', 'claude', '-p', enrichedMessage];
+  const child = useSSH
+    ? spawn('ssh', [sshAlias, args.join(' ')])
+    : spawn(args[0], args.slice(1));
+
+  let fullText = '';
+  let stderrText = '';
+
+  child.stdout.on('data', (chunk: Buffer) => {
+    const text = chunk.toString('utf8');
+    fullText += text;
+    callbacks.onChunk(text);
+  });
+
+  child.stderr.on('data', (chunk: Buffer) => {
+    stderrText += chunk.toString('utf8');
+  });
+
+  child.on('close', (code) => {
+    if (code === 0) {
+      finish(() => callbacks.onDone(fullText.trim()));
+    } else {
+      log('error', 'stream_bridge_error', {
+        exitCode: code,
+        stderr: stderrText.slice(0, 500),
+      });
+      finish(() => callbacks.onError(code === null ? 'timeout' : 'bridge_failed'));
+    }
+  });
+
+  child.on('error', (err) => {
+    log('error', 'stream_spawn_error', { error: err.message });
+    finish(() => callbacks.onError('bridge_failed'));
+  });
+
+  // Timeout: 5 minutes
+  const timer = setTimeout(() => {
+    if (!finished) {
+      log('warn', 'stream_timeout', { elapsed: 300000 });
+      child.kill('SIGTERM');
+      // Force kill after 3s if still alive
+      setTimeout(() => {
+        try { child.kill('SIGKILL'); } catch { /* ignore */ }
+      }, 3000);
+    }
+  }, 300000);
+
+  return {
+    abort: () => {
+      if (!finished) {
+        finished = true;
+        clearTimeout(timer);
+        cleanup();
+        try { child.kill('SIGTERM'); } catch { /* ignore */ }
+        setTimeout(() => {
+          try { child.kill('SIGKILL'); } catch { /* ignore */ }
+        }, 3000);
+      }
+    },
+  };
 }

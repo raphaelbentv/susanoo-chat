@@ -75,3 +75,29 @@ export function getMimeType(ext: string): string {
   const key = ext.toLowerCase() as keyof typeof MIME;
   return MIME[key] || 'application/octet-stream';
 }
+
+// ── SSE (Server-Sent Events) ────────────────────────────────
+
+export function sseStart(res: ServerResponse): void {
+  res.writeHead(200, {
+    'Content-Type': 'text/event-stream',
+    'Cache-Control': 'no-cache',
+    'Connection': 'keep-alive',
+    'Access-Control-Allow-Origin': ALLOWED_ORIGIN,
+    'Access-Control-Allow-Methods': 'GET,POST,PUT,DELETE,OPTIONS',
+    'Access-Control-Allow-Headers': 'Content-Type,Authorization',
+    'X-Content-Type-Options': 'nosniff',
+    'X-Accel-Buffering': 'no', // Disable nginx/proxy buffering
+  });
+  res.flushHeaders();
+}
+
+export function sseSend(res: ServerResponse, data: unknown, event?: string): void {
+  if (res.writableEnded) return;
+  if (event) res.write(`event: ${event}\n`);
+  res.write(`data: ${JSON.stringify(data)}\n\n`);
+}
+
+export function sseEnd(res: ServerResponse): void {
+  if (!res.writableEnded) res.end();
+}

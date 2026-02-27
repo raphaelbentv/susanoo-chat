@@ -1,10 +1,10 @@
 import type { IncomingMessage, ServerResponse } from 'http';
-import { json, parseBody } from '../utils/http.js';
+import { json, parseBody, sseStart, sseSend, sseEnd } from '../utils/http.js';
 import { dbRead, dbWrite } from '../modules/database.js';
 import { getAnySession as getSession } from '../modules/session.js';
 import { hasPermission } from '../modules/rbac.js';
 import { audit } from '../modules/audit.js';
-import { sendToHashirama, compactHistory } from '../modules/bridge.js';
+import { compactHistory, streamFromHashirama } from '../modules/bridge.js';
 import { getConversation, saveCompaction } from '../modules/conversations.js';
 import { log } from '../utils/logger.js';
 import { validate, sanitize } from '../modules/validate.js';
@@ -80,6 +80,8 @@ export async function handleMemoryClear(req: IncomingMessage, res: ServerRespons
 }
 
 export async function handleChat(req: IncomingMessage, res: ServerResponse): Promise<void> {
+  // ── Phase 1: Auth + Validation (JSON errors) ──────────────
+
   const session = getSession(req.headers.authorization);
   if (!session) {
     return json(res, 401, { error: 'unauthorized' });
@@ -232,14 +234,40 @@ export async function handleChat(req: IncomingMessage, res: ServerResponse): Pro
       history,
     };
 
-    const reply = sendToHashirama(message, session.profile, options);
-    return json(res, 200, {
-      reply,
-      model: options.model,
-      tokensUsed: Math.round(reply.length * 0.3),
+    // ── Phase 2: SSE Streaming ──────────────────────────────
+
+    sseStart(res);
+
+    const streamHandle = streamFromHashirama(message, session.profile, options, {
+      onChunk: (text) => {
+        sseSend(res, { t: text });
+      },
+      onDone: (fullText) => {
+        const reply = fullText || 'Réponse vide.';
+        const toks = Math.round(reply.length * 0.3);
+        sseSend(res, { model: options.model, tokens: toks }, 'done');
+        sseEnd(res);
+      },
+      onError: (error) => {
+        log('error', 'chat_stream_error', { profile: session.profile, error });
+        sseSend(res, { error }, 'error');
+        sseEnd(res);
+      },
     });
+
+    // Clean up child process if client disconnects
+    req.on('close', () => {
+      streamHandle.abort();
+    });
+
   } catch (e) {
     log('error', 'chat_failed', { profile: session.profile, error: (e as Error).message });
-    return json(res, 500, { error: 'chat_failed' });
+    // If SSE headers not sent yet, return JSON error
+    if (!res.headersSent) {
+      return json(res, 500, { error: 'chat_failed' });
+    }
+    // If SSE already started, send error event
+    sseSend(res, { error: 'chat_failed' }, 'error');
+    sseEnd(res);
   }
 }
