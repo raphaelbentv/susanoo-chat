@@ -29,6 +29,7 @@ export interface MessageMetadata {
   deepSearch?: boolean;
   contexts?: string[];
   connectors?: string[];
+  files?: string[];
 }
 
 export interface ConversationMetadata {

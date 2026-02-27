@@ -10,6 +10,17 @@ import { log } from '../utils/logger.js';
 import { validate, sanitize } from '../modules/validate.js';
 import type { ChatRequest } from '../types/index.js';
 
+const ALLOWED_MIME_TYPES = new Set([
+  'image/png',
+  'image/jpeg',
+  'image/gif',
+  'image/webp',
+  'application/pdf',
+  'text/plain',
+  'text/csv',
+  'text/markdown',
+]);
+
 export async function handleHistory(req: IncomingMessage, res: ServerResponse): Promise<void> {
   const session = getSession(req.headers.authorization);
   if (!session) {
@@ -217,11 +228,20 @@ export async function handleChat(req: IncomingMessage, res: ServerResponse): Pro
     }
 
     // Validate files if present
-    const files = Array.isArray(data.files) ? data.files.slice(0, 5).map(f => ({
-      name: String(f.name || 'file').slice(0, 200),
-      type: String(f.type || 'application/octet-stream'),
+    const rawFiles = Array.isArray(data.files) ? data.files : [];
+    const files = rawFiles.slice(0, 5).map(f => ({
+      name: String(f.name || 'file').trim().slice(0, 100),
+      type: String(f.type || 'application/octet-stream').trim(),
       data: String(f.data || ''),
-    })) : [];
+    }));
+
+    const invalidFiles = files.filter(f => !ALLOWED_MIME_TYPES.has(f.type));
+    if (invalidFiles.length > 0) {
+      return json(res, 400, {
+        error: 'unsupported_file_type',
+        details: invalidFiles.map(f => `${f.name}:${f.type}`),
+      });
+    }
 
     const options = {
       model: data.model || 'claude-sonnet-4',

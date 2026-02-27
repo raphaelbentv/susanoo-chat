@@ -187,6 +187,7 @@ Produis un résumé structuré et dense (max 3000 caractères). Utilise des puce
 
 function buildEnrichedMessage(
   message: string,
+  profile: string,
   options: ChatOptions,
 ): { enrichedMessage: string; tempFiles: string[] } {
   const tempFiles: string[] = [];
@@ -246,7 +247,8 @@ function buildEnrichedMessage(
 
   // Handle file attachments
   if (options.files && options.files.length > 0) {
-    const tmpDir = join(process.cwd(), '.tmp', 'uploads');
+    const safeProfile = (profile || 'unknown').replace(/[^a-zA-Z0-9._-]/g, '_').slice(0, 64) || 'unknown';
+    const tmpDir = join(process.cwd(), '.tmp', 'uploads', safeProfile);
     mkdirSync(tmpDir, { recursive: true });
 
     for (const file of options.files) {
@@ -272,8 +274,8 @@ function buildEnrichedMessage(
 
 // ── Synchronous bridge (kept for backward compat) ───────────
 
-export function sendToHashirama(message: string, _profile: string, options: ChatOptions): string {
-  const { enrichedMessage, tempFiles } = buildEnrichedMessage(message, options);
+export function sendToHashirama(message: string, profile: string, options: ChatOptions): string {
+  const { enrichedMessage, tempFiles } = buildEnrichedMessage(message, profile, options);
 
   try {
     // Pass message as argument directly — no shell interpolation
@@ -309,11 +311,11 @@ export interface StreamCallbacks {
 
 export function streamFromHashirama(
   message: string,
-  _profile: string,
+  profile: string,
   options: ChatOptions,
   callbacks: StreamCallbacks,
 ): { abort: () => void } {
-  const { enrichedMessage, tempFiles } = buildEnrichedMessage(message, options);
+  const { enrichedMessage, tempFiles } = buildEnrichedMessage(message, profile, options);
 
   const cleanup = () => {
     for (const f of tempFiles) {

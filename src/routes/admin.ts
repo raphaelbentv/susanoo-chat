@@ -272,6 +272,11 @@ export async function handleDeleteProfile(req: IncomingMessage, res: ServerRespo
       return json(res, 404, { error: 'profile_not_found' });
     }
 
+    const conversationIds = db.conversations[target] || [];
+    for (const id of conversationIds) {
+      delete db.conversationsData[id];
+    }
+    delete db.conversations[target];
     delete db.profiles[target];
     delete db.memory[target];
     dbWrite(db);
