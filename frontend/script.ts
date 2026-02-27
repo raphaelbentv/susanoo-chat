@@ -1536,22 +1536,130 @@ async function sendMessage() {
       payload.files = filesToSend.map(f => ({ name: f.name, type: f.type, data: f.base64 }));
     }
 
-    console.log('[DEBUG] Sending to /api/chat with payload:', payload);
+    console.log('[DEBUG] Sending to /api/chat (SSE)...');
     const r = await fetch('/api/chat', { method: 'POST', headers: authHeaders(), body: JSON.stringify(payload) });
     console.log('[DEBUG] Received response:', r.status, r.statusText);
     if (r.status === 401) { handleSessionExpired(); return; }
-    const d = await r.json().catch(() => ({}));
+
+    // Pre-stream errors (400, 403, 500) are still JSON
+    if (!r.ok) {
+      const d = await r.json().catch(() => ({}));
+      throw new Error(d.error || 'chat_error');
+    }
+
+    // ── SSE stream consumption ──────────────────────────────
+
+    // Switch from typing indicator to streaming message
     typing = false;
-    sendBtn.disabled = false;
-    if (!r.ok) throw new Error(d.error || 'chat_error');
+    const aiMsg = { id: Date.now(), role: 'ai' as const, text: '', time: nowLabel(), meta: '' };
+    messages.push(aiMsg);
 
-    const reply = d.reply || 'Réponse vide.';
-    const toks = d.tokensUsed || Math.round(reply.length * 0.3);
+    // Create the message DOM element and replace the typing indicator
+    const msgEl = createMessageEl(aiMsg);
+    const typingEl = chatMessages.querySelector('.typing-indicator');
+    if (typingEl) typingEl.remove();
+    chatMessages.appendChild(msgEl);
+    const bubble = msgEl.querySelector('.msg-bubble') as HTMLElement;
+
+    let fullText = '';
+    let doneData: { model?: string; tokens?: number } | null = null;
+
+    const reader = r.body!.getReader();
+    const decoder = new TextDecoder();
+    let sseBuffer = '';
+
+    try {
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+
+        sseBuffer += decoder.decode(value, { stream: true });
+
+        // Parse SSE events from buffer
+        const lines = sseBuffer.split('\n');
+        sseBuffer = lines.pop() || '';
+
+        let currentEvent = '';
+        for (const line of lines) {
+          if (line.startsWith('event: ')) {
+            currentEvent = line.slice(7).trim();
+          } else if (line.startsWith('data: ')) {
+            try {
+              const parsed = JSON.parse(line.slice(6));
+
+              if (currentEvent === 'done') {
+                doneData = parsed;
+              } else if (currentEvent === 'error') {
+                throw new Error(parsed.error || 'stream_error');
+              } else {
+                // Regular chunk
+                if (parsed.t) {
+                  fullText += parsed.t;
+                  bubble.innerHTML = parseMarkdown(fullText);
+                  chatMessages.scrollTop = chatMessages.scrollHeight;
+                }
+              }
+            } catch (parseErr) {
+              // Re-throw stream errors, ignore JSON parse failures
+              if ((parseErr as Error).message && !(parseErr as Error).message.includes('JSON')) {
+                throw parseErr;
+              }
+            }
+            currentEvent = '';
+          } else if (line === '') {
+            currentEvent = '';
+          }
+        }
+      }
+    } catch (streamErr) {
+      console.error('[DEBUG] Stream error:', streamErr);
+      if (!fullText) {
+        // No text received at all — remove empty message and show error
+        messages.pop();
+        msgEl.remove();
+        typing = false;
+        sendBtn.disabled = false;
+        addMessage('ai', 'Erreur de communication avec le bridge. Réessayez.');
+        renderMessages();
+        return;
+      }
+      // Partial text received — keep what we have
+      fullText += '\n\n⚠ *Réponse interrompue*';
+      bubble.innerHTML = parseMarkdown(fullText);
+    }
+
+    // ── Finalize the message ────────────────────────────────
+
+    const reply = fullText || 'Réponse vide.';
+    const toks = doneData?.tokens || Math.round(reply.length * 0.3);
     const modelName = MODELS.find(m => m.id === selectedModel)?.name || selectedModel;
-    addMessage('ai', reply, `${toks} tokens · ${modelName}`);
-    tokenCount += toks;
+    const meta = `${toks} tokens · ${modelName}`;
 
-    // Add AI message to conversation
+    // Update message object in the array
+    aiMsg.text = reply;
+    aiMsg.meta = meta;
+
+    // Update meta display in DOM
+    const metaEl = msgEl.querySelector('.msg-meta') as HTMLElement;
+    if (metaEl) metaEl.textContent = `${aiMsg.time} · ${meta}`;
+
+    // Final render with artifact detection
+    const artifact = detectArtifact(reply);
+    if (artifact) {
+      bubble.innerHTML = parseMarkdown(artifact.cleanText);
+      const artifactBtn = document.createElement('button');
+      artifactBtn.className = 'artifact-preview-btn';
+      artifactBtn.innerHTML = '⚡ Voir l\'artefact';
+      artifactBtn.onclick = () => showArtifact(artifact);
+      bubble.appendChild(artifactBtn);
+    } else {
+      bubble.innerHTML = parseMarkdown(reply);
+    }
+
+    tokenCount += toks;
+    sendBtn.disabled = false;
+
+    // Save AI message to conversation
     await fetch(`/api/conversations/${activeConversationId}/messages`, {
       method: 'POST',
       headers: authHeaders(),
@@ -1579,7 +1687,7 @@ async function sendMessage() {
     console.error('[DEBUG] Error in sendMessage:', e);
     typing = false;
     sendBtn.disabled = false;
-    if (e.message !== 'unauthorized') addMessage('ai', 'Erreur de communication avec le bridge. Réessayez.');
+    if ((e as any).message !== 'unauthorized') addMessage('ai', 'Erreur de communication avec le bridge. Réessayez.');
     renderMessages();
   }
   console.log('[DEBUG] sendMessage completed');
